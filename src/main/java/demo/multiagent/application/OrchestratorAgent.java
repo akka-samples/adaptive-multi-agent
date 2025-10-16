@@ -1,7 +1,6 @@
 package demo.multiagent.application;
 
 import akka.javasdk.agent.Agent;
-import akka.javasdk.annotations.AgentDescription;
 import akka.javasdk.annotations.Component;
 import demo.multiagent.domain.ProgressEvaluation;
 import java.util.List;
@@ -10,8 +9,8 @@ import java.util.List;
  * The OrchestratorAgent evaluates workflow progress and determines next steps
  * in the MagenticOne pattern.
  */
-@Component(id = "orchestrator-agent")
-@AgentDescription(
+@Component(
+  id = "orchestrator-agent",
   name = "Orchestrator",
   description = """
     An agent that evaluates the current progress of a multi-agent workflow

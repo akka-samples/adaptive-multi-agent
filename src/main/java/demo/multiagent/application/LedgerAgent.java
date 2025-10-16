@@ -1,7 +1,6 @@
 package demo.multiagent.application;
 
 import akka.javasdk.agent.Agent;
-import akka.javasdk.annotations.AgentDescription;
 import akka.javasdk.annotations.Component;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
@@ -10,8 +9,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
  * The LedgerAgent manages the task ledger (facts and plan) in the MagenticOne pattern.
  * It gathers facts, creates plans, and updates them when the workflow needs to replan.
  */
-@Component(id = "ledger-agent")
-@AgentDescription(
+@Component(
+  id = "ledger-agent",
   name = "Ledger Agent",
   description = """
     An agent that maintains the task ledger by gathering facts and creating

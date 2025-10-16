@@ -1,20 +1,20 @@
 package demo.multiagent.application;
 
 import akka.javasdk.agent.Agent;
-import akka.javasdk.annotations.AgentDescription;
+import akka.javasdk.annotations.AgentRole;
 import akka.javasdk.annotations.Component;
 import demo.multiagent.domain.AgentRequest;
 
-@Component(id = "event-agent")
-@AgentDescription(
+@Component(
+  id = "event-agent",
   name = "Event Agent",
   description = """
     An agent that provides information about local events, exhibitions, concerts,
     festivals, and cultural happenings. It can find family-friendly events,
     check event schedules, and provide details about venues, tickets, and timing.
-  """,
-  role = "worker"
+  """
 )
+@AgentRole("worker")
 public class EventAgent extends Agent {
 
   private static final String SYSTEM_MESSAGE =
