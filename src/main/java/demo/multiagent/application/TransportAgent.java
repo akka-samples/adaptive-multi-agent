@@ -1,20 +1,20 @@
 package demo.multiagent.application;
 
 import akka.javasdk.agent.Agent;
-import akka.javasdk.annotations.AgentDescription;
+import akka.javasdk.annotations.AgentRole;
 import akka.javasdk.annotations.Component;
 import demo.multiagent.domain.AgentRequest;
 
-@Component(id = "transport-agent")
-@AgentDescription(
+@Component(
+  id = "transport-agent",
   name = "Transport Agent",
   description = """
     An agent that provides transportation and navigation information. It can suggest
     public transport options, estimate travel times between locations, recommend
     routes, and provide information about transit costs, accessibility, and schedules.
-  """,
-  role = "worker"
+  """
 )
+@AgentRole("worker")
 public class TransportAgent extends Agent {
 
   private static final String SYSTEM_MESSAGE =

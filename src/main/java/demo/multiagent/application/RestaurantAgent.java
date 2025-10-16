@@ -1,21 +1,21 @@
 package demo.multiagent.application;
 
 import akka.javasdk.agent.Agent;
-import akka.javasdk.annotations.AgentDescription;
+import akka.javasdk.annotations.AgentRole;
 import akka.javasdk.annotations.Component;
 import demo.multiagent.domain.AgentRequest;
 
-@Component(id = "restaurant-agent")
-@AgentDescription(
+@Component(
+  id = "restaurant-agent",
   name = "Restaurant Agent",
   description = """
     An agent that provides restaurant and dining recommendations. It can suggest
     restaurants based on location, cuisine type, budget, dietary restrictions,
     and family-friendliness. It provides information about pricing, atmosphere,
     and suitability for different group types.
-  """,
-  role = "worker"
+  """
 )
+@AgentRole("worker")
 public class RestaurantAgent extends Agent {
 
   private static final String SYSTEM_MESSAGE =

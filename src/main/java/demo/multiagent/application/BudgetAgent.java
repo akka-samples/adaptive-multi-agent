@@ -1,21 +1,21 @@
 package demo.multiagent.application;
 
 import akka.javasdk.agent.Agent;
-import akka.javasdk.annotations.AgentDescription;
+import akka.javasdk.annotations.AgentRole;
 import akka.javasdk.annotations.Component;
 import akka.javasdk.annotations.FunctionTool;
 import demo.multiagent.domain.AgentRequest;
 
-@Component(id = "budget-agent")
-@AgentDescription(
+@Component(
+  id = "budget-agent",
   name = "Budget Agent",
   description = """
     An agent that tracks costs and manages budget constraints. It can estimate
     total expenses across activities, meals, and transport, flag when budgets
     are exceeded, and suggest cost-saving alternatives while maintaining quality.
-  """,
-  role = "worker"
+  """
 )
+@AgentRole("worker")
 public class BudgetAgent extends Agent {
 
   private static final String SYSTEM_MESSAGE =

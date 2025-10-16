@@ -1,19 +1,19 @@
 package demo.multiagent.application;
 
 import akka.javasdk.agent.Agent;
-import akka.javasdk.annotations.AgentDescription;
+import akka.javasdk.annotations.AgentRole;
 import akka.javasdk.annotations.Component;
 import demo.multiagent.domain.AgentRequest;
 
-@Component(id = "weather-agent")
-@AgentDescription(
+@Component(
+  id = "weather-agent",
   name = "Weather Agent",
   description = """
     An agent that provides weather information. It can provide current weather,
     forecasts, and other related information.
-  """,
-  role = "worker"
+  """
 )
+@AgentRole("worker")
 public class WeatherAgent extends Agent {
 
   private static final String SYSTEM_MESSAGE =
