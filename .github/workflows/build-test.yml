@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   verify:
-    name: Verfiy
+    name: Verify
     runs-on: Akka-Default
     if: github.event.repository.fork == false
     steps:
