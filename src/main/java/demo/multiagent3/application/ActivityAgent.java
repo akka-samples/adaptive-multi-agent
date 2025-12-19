@@ -1,0 +1,49 @@
+package demo.multiagent3.application;
+
+// tag::all[]
+
+import akka.javasdk.agent.Agent;
+import akka.javasdk.annotations.Component;
+import akka.javasdk.client.ComponentClient;
+import demo.multiagent3.domain.AgentRequest;
+
+import java.util.stream.Collectors;
+
+@Component(id = "activity-agent")
+public class ActivityAgent extends Agent {
+
+  private static final String SYSTEM_MESSAGE =
+    """
+    You are an activity agent. Your job is to suggest activities in the
+    real world. Like for example, a team building activity, sports, an
+    indoor or outdoor game, board games, a city trip, etc.
+    """.stripIndent();
+
+  private final ComponentClient componentClient;
+
+  public ActivityAgent(ComponentClient componentClient) { // <1>
+    this.componentClient = componentClient;
+  }
+
+  public Effect<String> query(AgentRequest request) { // <2>
+    var allPreferences = componentClient
+      .forEventSourcedEntity(request.userId())
+      .method(PreferencesEntity::getPreferences)
+      .invoke(); // <3>
+
+    String userMessage;
+    if (allPreferences.entries().isEmpty()) {
+      userMessage = request.message();
+    } else {
+      userMessage = request.message() +
+      "\nPreferences:\n" +
+      allPreferences.entries().stream().collect(Collectors.joining("\n", "- ", ""));
+    }
+
+    return effects()
+      .systemMessage(SYSTEM_MESSAGE)
+      .userMessage(userMessage) // <4>
+      .thenReply();
+  }
+}
+// end::all[]

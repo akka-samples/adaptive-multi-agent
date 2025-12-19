@@ -6,37 +6,33 @@ import static java.time.Duration.ofSeconds;
 import akka.Done;
 import akka.javasdk.agent.AgentRegistry;
 import akka.javasdk.annotations.Component;
-import akka.javasdk.annotations.StepName;
 import akka.javasdk.client.ComponentClient;
 import akka.javasdk.client.DynamicMethodRef;
-import akka.javasdk.workflow.Workflow;
 import demo.multiagent.domain.AgentRequest;
 import demo.multiagent.domain.AgentTeamState;
+import akka.javasdk.workflow.pattern.AdaptiveLoopWorkflow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Agent orchestrator workflow that implements the
- * <a href="https://microsoft.github.io/autogen/stable/user-guide/agentchat-user-guide/magentic-one.html">MagenticOne pattern</a>.
+ * Agent orchestrator workflow implementing the adaptive loop pattern.
  * <p>
- * Outer loop: Gather facts → Create plan → Enter inner loop
- * Inner loop: Evaluate progress → Execute agent → Loop/Replan/Finish
- * <p>
- * Key features:
- * - Adaptive: Re-evaluates progress after each agent response
- * - Detects stalling and re-plans when stuck
- * - Selects next agent dynamically based on current state
- * - Maintains evolving fact sheet that updates as it learns
+ * Extends AdaptiveLoopWorkflow which provides the step methods and orchestration logic.
+ * This class only needs to implement the business logic callbacks.
  */
 @Component(id = "agent-team")
-public class AgentTeamWorkflow extends Workflow<AgentTeamState> {
+public class AgentTeamWorkflow extends AdaptiveLoopWorkflow<AgentTeamState, AgentTeamWorkflow> {
 
-  public record Request(String userId, String message) {}
+  public record Request(String userId, String message, Double budgetLimit) {
+    // Convenience constructor with default budget
+    public Request(String userId, String message) {
+      this(userId, message, null);
+    }
+  }
+
+  public record ApprovalDecision(String approvalId, boolean approved) {}
 
   private static final Logger logger = LoggerFactory.getLogger(AgentTeamWorkflow.class);
-  private static final int MAX_TURNS = 15;
-  private static final int MAX_STALLS = 3;
-  private static final int MAX_REPLANS = 2;
 
   private final ComponentClient componentClient;
   private final AgentRegistry agentRegistry;
@@ -49,18 +45,41 @@ public class AgentTeamWorkflow extends Workflow<AgentTeamState> {
   @Override
   public WorkflowSettings settings() {
     return WorkflowSettings.builder()
-      .defaultStepTimeout(ofSeconds(60)) // Long timeout for LLM calls
+      .defaultStepTimeout(ofSeconds(60))
       .defaultStepRecovery(maxRetries(1).failoverTo(AgentTeamWorkflow::errorStep))
       .build();
+  }
+
+  // ========== Configuration ==========
+
+  @Override
+  protected int maxTurns() {
+    return 15;
+  }
+
+  @Override
+  protected int stallThreshold() {
+    return 3;
+  }
+
+  @Override
+  protected int maxReplans() {
+    return 2;
   }
 
   // ========== Command Handlers ==========
 
   public Effect<Done> start(Request request) {
     if (currentState() == null) {
+      var state = request.budgetLimit() != null
+          ? AgentTeamState.init(request.message(), request.budgetLimit())
+          : AgentTeamState.init(request.message());
+
+      logger.info("Starting workflow with budget limit: ${}", state.budgetLimit());
+
       return effects()
-        .updateState(AgentTeamState.init(request.message()))
-        .transitionTo(AgentTeamWorkflow::gatherFactsStep)
+        .updateState(state)
+        .transitionTo(loopStart())
         .thenReply(Done.getInstance());
     } else {
       return effects()
@@ -75,8 +94,7 @@ public class AgentTeamWorkflow extends Workflow<AgentTeamState> {
       return effects()
         .error("Workflow not completed yet. Status: " + currentState().status());
     } else {
-      // Extract final answer from message history
-      var messages = currentState().messageHistory();
+      var messages = currentState().loopState().messageHistory();
       for (int i = messages.size() - 1; i >= 0; i--) {
         if (messages.get(i).startsWith("FINAL: ")) {
           return effects().reply(messages.get(i).substring(7));
@@ -94,30 +112,34 @@ public class AgentTeamWorkflow extends Workflow<AgentTeamState> {
     }
   }
 
-  // ========== Outer Loop: Gather Facts & Create Plan ==========
+  // ========== Adaptive Loop Callbacks ==========
 
-  @StepName("gather-facts")
-  private StepEffect gatherFactsStep() {
-    logger.info("OUTER LOOP: Gathering facts for task: {}", currentState().task());
+  @Override
+  protected AgentTeamState gatherFacts() {
+    logger.info("Gathering facts for task: {}", currentState().task());
 
-    var facts = componentClient
+    double cost = estimateAgentCost("ledger");
+    String facts = componentClient
       .forAgent()
       .inSession(sessionId())
       .method(LedgerAgent::process)
       .invoke(new LedgerAgent.GatherFactsRequest(currentState().task()));
 
-    logger.info("Gathered facts:\n{}", facts);
-    return stepEffects()
-      .updateState(currentState().withFacts(facts))
-      .thenTransitionTo(AgentTeamWorkflow::createPlanStep);
+    var updatedLoop = currentState().loopState()
+        .withFacts(facts)
+        .addMessage(String.format("COST: $%.2f for gatherFacts (total: $%.2f / $%.2f)",
+            cost, currentState().currentSpent() + cost, currentState().budgetLimit()));
+
+    return currentState().withLoopState(updatedLoop).addSpent(cost);
   }
 
-  @StepName("create-plan")
-  private StepEffect createPlanStep() {
-    logger.info("OUTER LOOP: Creating plan");
+  @Override
+  protected AgentTeamState createPlan() {
+    logger.info("Creating plan based on facts");
     var teamDescription = getTeamDescription();
 
-    var plan = componentClient
+    double cost = estimateAgentCost("ledger");
+    String plan = componentClient
       .forAgent()
       .inSession(sessionId())
       .method(LedgerAgent::process)
@@ -125,45 +147,29 @@ public class AgentTeamWorkflow extends Workflow<AgentTeamState> {
         new LedgerAgent.CreatePlanRequest(
           currentState().task(),
           teamDescription,
-          currentState().facts()
+          currentState().loopState().facts()
         )
       );
 
-    logger.info("Created plan:\n{}", plan);
-
-    // Update state with new plan and task ledger
+    // Add task ledger to message history (specific to AgentTeamWorkflow)
     var ledgerMessage = buildTaskLedger(
-      currentState().task(),
-      teamDescription,
-      currentState().facts(),
-      plan
+        currentState().task(),
+        teamDescription,
+        currentState().loopState().facts(),
+        plan
     );
-    var newState = currentState().withPlan(plan).addMessage("TASK_LEDGER: " + ledgerMessage);
 
-    return stepEffects()
-      .updateState(newState)
-      .thenTransitionTo(AgentTeamWorkflow::evaluateProgressStep);
+    var updatedLoop = currentState().loopState()
+        .withPlan(plan)
+        .addMessage("TASK_LEDGER: " + ledgerMessage)
+        .addMessage(String.format("COST: $%.2f for createPlan (total: $%.2f / $%.2f)",
+            cost, currentState().currentSpent() + cost, currentState().budgetLimit()));
+
+    return currentState().withLoopState(updatedLoop).addSpent(cost);
   }
 
-  // ========== Inner Loop: Evaluate Progress & Execute ==========
-
-  @StepName("evaluate-progress")
-  private StepEffect evaluateProgressStep() {
-    logger.info(
-      "INNER LOOP: Evaluating progress (round {}, stall count {})",
-      currentState().roundCount(),
-      currentState().stallCount()
-    );
-
-    // Check max turns limit
-    if (currentState().roundCount() >= MAX_TURNS) {
-      logger.warn("Max turns ({}) reached", MAX_TURNS);
-      return stepEffects()
-        .updateState(currentState().fail("Maximum rounds reached"))
-        .thenTransitionTo(AgentTeamWorkflow::finalAnswerStep);
-    }
-
-    var newState = currentState().incrementRoundCount();
+  @Override
+  protected ProgressEvaluation evaluateProgress(int turn) {
     var workers = agentRegistry.agentsWithRole("worker");
     var participantIds = workers.stream().map(AgentRegistry.AgentInfo::id).toList();
 
@@ -172,14 +178,28 @@ public class AgentTeamWorkflow extends Workflow<AgentTeamState> {
       var agentId = participantIds.getFirst();
       logger.info("Single agent team - executing {}", agentId);
       var instruction = "Address the task: " + currentState().task();
-      newState = newState.addMessage("ORCHESTRATOR: " + instruction);
-      return stepEffects()
-        .updateState(newState)
-        .thenTransitionTo(AgentTeamWorkflow::executeAgentStep)
-        .withInput(new AgentExecution(agentId, instruction));
+
+      // Check budget before execution
+      double estimatedCost = estimateAgentCost(agentId);
+      if (!currentState().hasRemainingBudget(estimatedCost)) {
+        String context = String.format(
+            "Budget approval needed:\n" +
+            "Agent: %s\n" +
+            "Estimated cost: $%.2f\n" +
+            "Current spent: $%.2f of $%.2f\n" +
+            "Would exceed budget by: $%.2f",
+            agentId, estimatedCost,
+            currentState().currentSpent(), currentState().budgetLimit(),
+            (currentState().currentSpent() + estimatedCost) - currentState().budgetLimit()
+        );
+        return ProgressEvaluation.awaitingApproval(agentId, instruction, context);
+      }
+
+      return ProgressEvaluation.continueWith(agentId, instruction);
     }
 
     // Call orchestrator to evaluate progress
+    // NOTE: orchestrator cost is tracked separately - see comment below
     var teamDescription = getTeamDescription();
     var evaluation = componentClient
       .forAgent()
@@ -190,12 +210,12 @@ public class AgentTeamWorkflow extends Workflow<AgentTeamState> {
           currentState().task(),
           teamDescription,
           participantIds,
-          newState.roundCount()
+          turn
         )
       );
 
     logger.info(
-      "Progress evaluation: satisfied={}, inLoop={}, makingProgress={}, nextSpeaker={}",
+      "Progress: satisfied={}, inLoop={}, makingProgress={}, nextSpeaker={}",
       evaluation.isRequestSatisfied().answer(),
       evaluation.isInLoop().answer(),
       evaluation.isProgressBeingMade().answer(),
@@ -204,172 +224,202 @@ public class AgentTeamWorkflow extends Workflow<AgentTeamState> {
 
     // Check if request is satisfied
     if (evaluation.isRequestSatisfied().answer()) {
-      logger.info("Request satisfied: {}", evaluation.isRequestSatisfied().reason());
-      return stepEffects()
-        .updateState(
-          newState.addMessage("SATISFIED: " + evaluation.isRequestSatisfied().reason())
-        )
-        .thenTransitionTo(AgentTeamWorkflow::finalAnswerStep);
+      return ProgressEvaluation.complete(evaluation.isRequestSatisfied().reason());
     }
 
-    // Track stalling
-    if (!evaluation.isProgressBeingMade().answer() || evaluation.isInLoop().answer()) {
-      newState = newState.incrementStallCount();
-      logger.warn(
-        "Stall detected (count: {}): progress={}, loop={}",
-        newState.stallCount(),
-        evaluation.isProgressBeingMade().reason(),
-        evaluation.isInLoop().reason()
-      );
-    } else {
-      newState = newState.resetStallCount();
-    }
+    // Check for stalling
+    boolean isStalled = !evaluation.isProgressBeingMade().answer() ||
+                        evaluation.isInLoop().answer();
 
-    // Check if too many stalls - need to replan
-    if (newState.stallCount() >= MAX_STALLS) {
-      // Check if we've replanned too many times
-      if (newState.replanCount() >= MAX_REPLANS) {
-        logger.warn("Max replans ({}) reached - giving up", MAX_REPLANS);
-        return stepEffects()
-          .updateState(newState.fail("Maximum replanning attempts reached"))
-          .thenTransitionTo(AgentTeamWorkflow::finalAnswerStep);
-      }
-
-      logger.warn(
-        "Max stalls ({}) reached - replanning (attempt {})",
-        MAX_STALLS,
-        newState.replanCount() + 1
-      );
-      return stepEffects()
-        .updateState(newState.startReplanning())
-        .thenTransitionTo(AgentTeamWorkflow::updateLedgerStep);
-    }
-
-    // Continue with next agent
     String nextAgentId = evaluation.nextSpeaker().answer();
     String instruction = evaluation.instructionOrQuestion().answer();
 
-    newState = newState.addMessage("ORCHESTRATOR: " + instruction);
-    logger.info("Next agent: {} - {}", nextAgentId, instruction);
-
-    return stepEffects()
-      .updateState(newState)
-      .thenTransitionTo(AgentTeamWorkflow::executeAgentStep)
-      .withInput(new AgentExecution(nextAgentId, instruction));
-  }
-
-  public record AgentExecution(String agentId, String instruction) {}
-
-  @StepName("execute-agent")
-  private StepEffect executeAgentStep(AgentExecution execution) {
-    logger.info(
-      "Executing agent: {} with instruction: {}",
-      execution.agentId(),
-      execution.instruction()
-    );
-
-    // Call agent dynamically using ID
-    var request = new AgentRequest(execution.instruction());
-    DynamicMethodRef<AgentRequest, String> call = componentClient
-      .forAgent()
-      .inSession(sessionId())
-      .dynamicCall(execution.agentId());
-
-    String response = call.invoke(request);
-    logger.info("Agent {} response: {}", execution.agentId(), response);
-
-    var newState = currentState()
-      .addMessage(execution.agentId() + ": " + response)
-      .addAgentResponse(execution.agentId(), response);
-
-    // Continue inner loop
-    return stepEffects()
-      .updateState(newState)
-      .thenTransitionTo(AgentTeamWorkflow::evaluateProgressStep);
-  }
-
-  // ========== Replanning (Re-enter Outer Loop) ==========
-
-  @StepName("update-ledger")
-  private StepEffect updateLedgerStep() {
-    logger.info(
-      "REPLANNING: Updating task ledger (replan count: {})",
-      currentState().replanCount()
-    );
-
-    // Update facts based on what we've learned
-    var updatedFacts = componentClient
-      .forAgent()
-      .inSession(sessionId())
-      .method(LedgerAgent::process)
-      .invoke(
-        new LedgerAgent.UpdateFactsRequest(currentState().task(), currentState().facts())
-      );
-
-    logger.info("Updated facts:\n{}", updatedFacts);
-
-    // Update plan based on what went wrong
-    var teamDescription = getTeamDescription();
-    var updatedPlan = componentClient
-      .forAgent()
-      .inSession(sessionId())
-      .method(LedgerAgent::process)
-      .invoke(new LedgerAgent.UpdatePlanRequest(teamDescription));
-
-    logger.info("Updated plan:\n{}", updatedPlan);
-
-    // Update state with new plan and task ledger
-    var ledgerMessage = buildTaskLedger(
-      currentState().task(),
-      teamDescription,
-      updatedFacts,
-      updatedPlan
-    );
-
-    // IMPORTANT: Preserve replanCount from current state, don't reset with init()
-    var newState = currentState()
-      .withFacts(updatedFacts)
-      .withPlan(updatedPlan)
-      .addMessage("UPDATED_TASK_LEDGER: " + ledgerMessage);
-
-    // Re-enter inner loop - stallCount was already reset by startReplanning()
-    return stepEffects()
-      .updateState(newState)
-      .thenTransitionTo(AgentTeamWorkflow::evaluateProgressStep);
-  }
-
-  // ========== Completion ==========
-
-  @StepName("final-answer")
-  private StepEffect finalAnswerStep() {
-    logger.info("Generating final answer");
-
-    var agentsAnswers = currentState().agentResponses().values();
-    if (agentsAnswers.isEmpty()) {
-      logger.warn("No agent responses to summarize");
-      return stepEffects()
-        .updateState(currentState().complete("Unable to generate an answer"))
-        .thenPause();
+    if (isStalled) {
+      String reason = evaluation.isInLoop().answer()
+          ? evaluation.isInLoop().reason()
+          : evaluation.isProgressBeingMade().reason();
+      return ProgressEvaluation.stalled(nextAgentId, instruction, reason);
     }
 
-    var finalAnswer = componentClient
+    // HITL: Check budget before executing next agent
+    double estimatedCost = estimateAgentCost(nextAgentId);
+    if (!currentState().hasRemainingBudget(estimatedCost)) {
+      String context = String.format(
+          "Budget approval needed:\n" +
+          "Turn: %d\n" +
+          "Agent: %s\n" +
+          "Instruction: %s\n" +
+          "Estimated cost: $%.2f\n" +
+          "Current spent: $%.2f of $%.2f\n" +
+          "Remaining budget: $%.2f\n" +
+          "Would exceed budget by: $%.2f",
+          turn, nextAgentId, instruction, estimatedCost,
+          currentState().currentSpent(), currentState().budgetLimit(),
+          currentState().remainingBudget(),
+          (currentState().currentSpent() + estimatedCost) - currentState().budgetLimit()
+      );
+      return ProgressEvaluation.awaitingApproval(nextAgentId, instruction, context);
+    }
+
+    return ProgressEvaluation.continueWith(nextAgentId, instruction);
+  }
+
+  // NOTE: evaluateProgress() calls the orchestrator but doesn't track costs because
+  // it returns ProgressEvaluation, not state. The orchestrator cost could be tracked
+  // in innerLoopStep() if needed, but for simplicity we only track costs in methods
+  // that directly return updated state (gatherFacts, createPlan, executeAgent, etc.)
+
+  @Override
+  protected AgentExecutionEffect<?, AgentTeamState> executeAgent(
+      String agentId, String instruction) {
+    // Capture cost for this agent
+    final double agentCost = estimateAgentCost(agentId);
+
+    return AgentExecutionEffect
+        .call(() -> {
+          logger.info("Calling agent {} with: {}", agentId, instruction);
+          var request = new AgentRequest(instruction);
+          DynamicMethodRef<AgentRequest, String> call = componentClient
+              .forAgent()
+              .inSession(sessionId())
+              .dynamicCall(agentId);
+
+          String response = call.invoke(request);
+          logger.info("Agent {} completed (cost: ${})", agentId, agentCost);
+          return response;
+        })
+        .updateState((response, state) -> {
+          var updatedLoop = state.loopState()
+              .addMessage(agentId + ": " + response)
+              .addAgentResponse(agentId, response)
+              .addMessage(String.format("COST: $%.2f (total: $%.2f / $%.2f)",
+                  agentCost, state.currentSpent() + agentCost, state.budgetLimit()));
+          return state.withLoopState(updatedLoop).addSpent(agentCost);
+        });
+  }
+
+  @Override
+  protected AgentTeamState summarize() {
+    logger.info("Summarizing {} agent responses", currentState().loopState().agentResponses().size());
+
+    var agentsAnswers = currentState().loopState().agentResponses().values();
+
+    if (agentsAnswers.isEmpty()) {
+      logger.warn("No agent responses to summarize");
+      return currentState().complete("Unable to generate an answer");
+    }
+
+    double cost = estimateAgentCost("summarizer");
+    String finalAnswer = componentClient
       .forAgent()
       .inSession(sessionId())
       .method(SummarizerAgent::summarize)
       .invoke(new SummarizerAgent.Request(currentState().task(), agentsAnswers));
 
-    logger.info("Final answer: {}", finalAnswer);
+    // Track cost before completing
+    var stateWithCost = currentState()
+        .withLoopState(currentState().loopState()
+            .addMessage(String.format("COST: $%.2f for summarize (total: $%.2f / $%.2f)",
+                cost, currentState().currentSpent() + cost, currentState().budgetLimit())))
+        .addSpent(cost);
 
-    return stepEffects().updateState(currentState().complete(finalAnswer)).thenPause();
+    return stateWithCost.complete(finalAnswer);
   }
 
-  @StepName("error")
-  private StepEffect errorStep() {
-    logger.error("Workflow error handling");
-    return stepEffects()
-      .updateState(currentState().fail("Workflow encountered an error"))
-      .thenEnd();
+  @Override
+  protected AgentTeamState updateFacts() {
+    logger.info("Updating facts during replan");
+
+    double cost = estimateAgentCost("ledger");
+    String facts = componentClient
+      .forAgent()
+      .inSession(sessionId())
+      .method(LedgerAgent::process)
+      .invoke(
+        new LedgerAgent.UpdateFactsRequest(currentState().task(), currentState().loopState().facts())
+      );
+
+    var updatedLoop = currentState().loopState()
+        .withFacts(facts)
+        .addMessage(String.format("COST: $%.2f for updateFacts (total: $%.2f / $%.2f)",
+            cost, currentState().currentSpent() + cost, currentState().budgetLimit()));
+
+    return currentState().withLoopState(updatedLoop).addSpent(cost);
   }
+
+  @Override
+  protected AgentTeamState handleFailure(String reason) {
+    return currentState().fail(reason);
+  }
+
+  @Override
+  protected AgentTeamState updatePlan() {
+    logger.info("Updating plan during replan");
+
+    // First update facts (already tracks its own cost)
+    AgentTeamState stateWithFacts = updateFacts();
+
+    // Then update plan based on new facts
+    double cost = estimateAgentCost("ledger");
+    var teamDescription = getTeamDescription();
+    String plan = componentClient
+      .forAgent()
+      .inSession(sessionId())
+      .method(LedgerAgent::process)
+      .invoke(new LedgerAgent.UpdatePlanRequest(teamDescription));
+
+    // Add updated task ledger
+    var ledgerMessage = buildTaskLedger(
+        stateWithFacts.task(),
+        teamDescription,
+        stateWithFacts.loopState().facts(),
+        plan
+    );
+
+    var updatedLoop = stateWithFacts.loopState()
+        .withPlan(plan)
+        .addMessage("UPDATED_TASK_LEDGER: " + ledgerMessage)
+        .addMessage(String.format("COST: $%.2f for updatePlan (total: $%.2f / $%.2f)",
+            cost, stateWithFacts.currentSpent() + cost, stateWithFacts.budgetLimit()));
+
+    return stateWithFacts.withLoopState(updatedLoop).addSpent(cost);
+  }
+
+  // ========== HITL Command Handlers ==========
+
+  /**
+   * Approve or reject a budget-exceeding operation.
+   */
+  public Effect<Done> approve(ApprovalDecision decision) {
+    return handleApproval(decision.approvalId(), decision.approved());
+  }
+
+  /**
+   * Get pending approval details.
+   */
+  public ReadOnlyEffect<String> getPendingApprovalContext() {
+    var pendingApproval = currentState().loopState().pendingApproval();
+    if (pendingApproval == null) {
+      return effects().reply("No pending approval");
+    }
+    return effects().reply(pendingApproval.evaluation().approvalContext());
+  }
+
+  /**
+   * Get budget status.
+   */
+  public ReadOnlyEffect<BudgetStatus> getBudgetStatus() {
+    if (currentState() == null) {
+      return effects().error("Workflow not started");
+    }
+    return effects().reply(new BudgetStatus(
+        currentState().budgetLimit(),
+        currentState().currentSpent(),
+        currentState().remainingBudget()
+    ));
+  }
+
+  public record BudgetStatus(double budgetLimit, double currentSpent, double remaining) {}
 
   // ========== Helper Methods ==========
 
@@ -406,5 +456,26 @@ public class AgentTeamWorkflow extends Workflow<AgentTeamState> {
     %s
     """.stripIndent()
       .formatted(task, team, facts, plan);
+  }
+
+  /**
+   * Estimates the cost of calling a specific agent.
+   * In a real system, this would be based on actual API costs, token counts, etc.
+   */
+  private double estimateAgentCost(String agentId) {
+    // Simulate different costs for different agent types
+    if (agentId.contains("orchestrator")) {
+      return 0.50;  // Orchestrator uses expensive LLM
+    } else if (agentId.contains("web-searcher")) {
+      return 1.00;  // Web search API costs
+    } else if (agentId.contains("code-executor")) {
+      return 0.75;  // Code execution environment costs
+    } else if (agentId.contains("summarizer")) {
+      return 0.30;  // Summarization is cheaper
+    } else if (agentId.contains("ledger")) {
+      return 0.40;  // Ledger operations
+    } else {
+      return 0.25;  // Default cost for other agents
+    }
   }
 }
