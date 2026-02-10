@@ -1,0 +1,16 @@
+/*
+ * Copyright (C) 2021-2025 Lightbend Inc. <https://www.lightbend.com>
+ */
+
+package akka.javasdk.swarm.client;
+
+import akka.annotation.DoNotInherit;
+import akka.javasdk.client.AgentClientInSession;
+
+/** Not for user extension or instantiation, returned by the SDK component client */
+@DoNotInherit
+public interface AgentClient {
+
+  /** The agent participates in a session, which is used for the agent's conversational memory. */
+  AgentClientInSession inSession(String sessionId);
+}
