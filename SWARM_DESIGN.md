@@ -570,6 +570,16 @@ Using `AgentRegistry` to dynamically discover available handoff targets.
 
 **Questions**: Accept agent roles instead of specific IDs? Dynamic resolution at start time vs each turn? How does this interact with `@AgentRole` annotations? Security implications?
 
+### Typed Input (Beyond String)
+
+Currently swarms only accept a `String` user message as input. For many use cases, a structured input type would be more natural — e.g., a `ReRatingRequest` record with policy ID, risk factors, and effective date.
+
+This would likely mean adding `inputType(Class<T>)` to `SwarmParams.Builder`, which changes the signature of `Swarm::run` from `run(String)` to `run(T)`. The LLM would receive a serialized representation of the input object as context.
+
+The `inputType` also defines the schema for swarm handoff tool calls. When a parent swarm hands off to a child swarm with a declared `inputType`, the LLM would produce a tool call with a JSON payload conforming to that type — just like it does for `@FunctionTool` parameters. This gives the parent swarm's LLM a structured contract for what data the child swarm expects, rather than passing unstructured text.
+
+**Questions**: How does a structured input interact with the system prompt — is it injected as JSON? Should the builder enforce that `userMessage` and `inputType` are mutually exclusive, or can they coexist (structured data + free-text instructions)? For the class-based design, should `Swarm` have two type parameters `Swarm<I, R>` (input + result)?
+
 ---
 
 ## Summary
