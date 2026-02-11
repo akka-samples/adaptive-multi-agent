@@ -28,7 +28,7 @@ public sealed interface Handoff {
   }
 
   /**
-   * Handoff to a nested swarm (composition).
+   * Handoff to a nested swarm (composition via SwarmParams).
    *
    * @param name optional name for the nested swarm
    * @param params the swarm configuration
@@ -59,12 +59,12 @@ public sealed interface Handoff {
     return new AgentHandoff(agentClass.getSimpleName());
   }
 
-  /** Create a handoff to a nested swarm (composition). */
+  /** Create a handoff to a nested inline swarm (composition via SwarmParams). */
   static Handoff toSwarm(SwarmParams params) {
     return new SwarmHandoff(params);
   }
 
-  /** Create a named handoff to a nested swarm (composition). */
+  /** Create a named handoff to a nested inline swarm (composition via SwarmParams). */
   static Handoff toSwarm(String name, SwarmParams params) {
     return new SwarmHandoff(name, params);
   }
