@@ -59,15 +59,10 @@ public class ContentRefinementExample {
             .maxTurns(8)
             .build());
 
-    SwarmResult result = componentClient
-        .forSwarm(swarmId)
-        .method(Swarm::getResult)
-        .invoke();
-
-    if (result.isCompleted()) {
-      return result.resultAs(ContentQuality.class);
-    } else {
-      throw new RuntimeException("Content refinement did not complete: " + result.status().state());
-    }
+    return switch (componentClient.forSwarm(swarmId).method(Swarm::getResult).invoke()) {
+      case SwarmResult.Completed c -> c.resultAs(ContentQuality.class);
+      case SwarmResult.Failed f -> throw new RuntimeException("Refinement failed: " + f.reason());
+      default -> throw new RuntimeException("Content refinement did not complete");
+    };
   }
 }

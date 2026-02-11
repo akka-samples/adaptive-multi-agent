@@ -52,16 +52,11 @@ public class RecordsSearchExample {
             .maxTurns(15)
             .build());
 
-    SwarmResult result = componentClient
-        .forSwarm(swarmId)
-        .method(Swarm::getResult)
-        .invoke();
-
-    if (result.isCompleted()) {
-      return result.resultAs(UCCSearchResult.class);
-    } else {
-      throw new RuntimeException("Search did not complete: " + result.status().state());
-    }
+    return switch (componentClient.forSwarm(swarmId).method(Swarm::getResult).invoke()) {
+      case SwarmResult.Completed c -> c.resultAs(UCCSearchResult.class);
+      case SwarmResult.Failed f -> throw new RuntimeException("Search failed: " + f.reason());
+      default -> throw new RuntimeException("Search did not complete");
+    };
   }
 
   /**

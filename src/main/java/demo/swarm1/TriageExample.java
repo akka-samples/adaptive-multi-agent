@@ -41,10 +41,12 @@ public class TriageExample {
         .method(Swarm::getResult)
         .invoke();
 
-    if (result.isCompleted()) {
-      return result.resultAs(String.class);
-    } else {
-      return "Swarm not completed: " + result.status().state();
-    }
+    return switch (result) {
+      case SwarmResult.Completed c -> c.resultAs(String.class);
+      case SwarmResult.Failed f -> "Failed: " + f.reason();
+      case SwarmResult.Running r -> "Still running (turn " + r.currentTurn() + "/" + r.maxTurns() + ")";
+      case SwarmResult.Paused p -> "Paused: " + p.reason().message();
+      case SwarmResult.Stopped s -> "Stopped: " + s.reason();
+    };
   }
 }

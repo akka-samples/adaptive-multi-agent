@@ -1,7 +1,6 @@
 package demo.swarm4;
 
 import akka.javasdk.swarm.Handoff;
-import akka.javasdk.swarm.PauseReason;
 import akka.javasdk.swarm.Swarm;
 import akka.javasdk.swarm.SwarmParams;
 import akka.javasdk.swarm.SwarmResult;
@@ -55,25 +54,18 @@ public class PolicyReRatingExample {
             .build());
 
     // Check result — may be paused awaiting underwriter approval
-    SwarmResult result = componentClient
-        .forSwarm(swarmId)
-        .method(Swarm::getResult)
-        .invoke();
-
-    if (result.isPaused()) {
-      // Swarm is waiting for human approval.
-      // An external process (e.g. underwriter UI) would later call:
-      //   componentClient.forSwarm(swarmId)
-      //       .method(Swarm::resume).invoke("Approved by underwriter Jane Doe");
-      PauseReason reason = result.status().pauseReason().orElseThrow();
-      throw new AwaitingApprovalException(reason.message(), swarmId);
-    }
-
-    if (result.isCompleted()) {
-      return result.resultAs(RatedPolicyOutput.class);
-    } else {
-      throw new RuntimeException("Re-rating did not complete: " + result.status().state());
-    }
+    return switch (componentClient.forSwarm(swarmId).method(Swarm::getResult).invoke()) {
+      case SwarmResult.Completed c -> c.resultAs(RatedPolicyOutput.class);
+      case SwarmResult.Paused p -> {
+        // Swarm is waiting for human approval.
+        // An external process (e.g. underwriter UI) would later call:
+        //   componentClient.forSwarm(swarmId)
+        //       .method(Swarm::resume).invoke("Approved by underwriter Jane Doe");
+        throw new AwaitingApprovalException(p.reason().message(), swarmId);
+      }
+      case SwarmResult.Failed f -> throw new RuntimeException("Re-rating failed: " + f.reason());
+      default -> throw new RuntimeException("Re-rating did not complete");
+    };
   }
 
   public static class AwaitingApprovalException extends RuntimeException {

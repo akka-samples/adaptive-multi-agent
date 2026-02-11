@@ -131,7 +131,9 @@ Since swarms are configured at runtime (not via class annotations), this metadat
 
 #### Retrieving the Result
 
-Since `Swarm::run` is fire-and-forget, the final result must be retrieved separately. `getResult` returns a `SwarmResult<T>` that combines the current status with the optional typed result.
+Since `Swarm::run` is returning void, the final result must be retrieved separately. `getResult` returns a `SwarmResult` — a sealed interface ADT that can be consumed via pattern matching.
+
+Alternatively, `Swarm::run` could return the final result, but we would still need a separate `getResult`, because a swarm might be rather long lived, and outlives the client, and then it should still be possible to ask it for result (or notification stream).
 
 ```java
 // Poll for the result
@@ -140,36 +142,45 @@ SwarmResult result = componentClient
     .method(Swarm::getResult)
     .invoke();
 
-// Check status and extract typed result
-if (result.isCompleted()) {
-    ActivityRecommendation recommendation = result.resultAs(ActivityRecommendation.class);
-    // use recommendation
-} else if (result.isFailed()) {
-    String reason = result.failureReason().orElse("unknown");
-    // handle failure
-} else {
-    // still running or paused
-    SwarmStatus status = result.status();
-    // e.g. status.currentAgent(), status.currentTurn()
+// Pattern match on the result
+switch (result) {
+    case SwarmResult.Completed c -> {
+        ActivityRecommendation recommendation = c.resultAs(ActivityRecommendation.class);
+        // use recommendation
+    }
+    case SwarmResult.Paused p -> {
+        // awaiting human input
+        // p.reason().message(), p.currentTurn()
+    }
+    case SwarmResult.Running r -> {
+        // still in progress
+        // r.currentAgent(), r.currentTurn(), r.maxTurns()
+    }
+    case SwarmResult.Failed f -> {
+        // handle failure: f.reason()
+    }
+    case SwarmResult.Stopped s -> {
+        // externally stopped: s.reason()
+    }
 }
 ```
 
-**SwarmResult model:**
+**SwarmResult model (sealed ADT):**
 ```java
-record SwarmResult(
-    SwarmStatus status,
-    Optional<Object> result,       // Present when COMPLETED
-    Optional<String> failureReason // Present when FAILED
-) {
-    boolean isCompleted() { return status.state() == State.COMPLETED; }
-    boolean isFailed() { return status.state() == State.FAILED; }
-    boolean isRunning() { return status.state() == State.RUNNING; }
-    boolean isPaused() { return status.state() == State.PAUSED; }
-
-    // Typed accessor — casts the result to the expected type from responseAs()
-    <T> T resultAs(Class<T> type) { return type.cast(result.orElseThrow()); }
+sealed interface SwarmResult {
+    record Running(int currentTurn, int maxTurns,
+                   Optional<String> currentAgent,
+                   Optional<String> currentChildSwarm) implements SwarmResult {}
+    record Paused(PauseReason reason, int currentTurn, int maxTurns) implements SwarmResult {}
+    record Completed(Object result) implements SwarmResult {
+        <T> T resultAs(Class<T> type) { return type.cast(result); }
+    }
+    record Failed(String reason) implements SwarmResult {}
+    record Stopped(String reason) implements SwarmResult {}
 }
 ```
+
+Each variant carries only the fields relevant to that state — no optional fields needed. The `resultAs()` typed accessor is only available on `Completed`.
 
 #### Notification Stream
 

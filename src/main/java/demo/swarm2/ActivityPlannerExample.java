@@ -50,15 +50,10 @@ public class ActivityPlannerExample {
             .build());
 
     // Retrieve the typed result
-    SwarmResult result = componentClient
-        .forSwarm(swarmId)
-        .method(Swarm::getResult)
-        .invoke();
-
-    if (result.isCompleted()) {
-      return result.resultAs(ActivityRecommendation.class);
-    } else {
-      throw new RuntimeException("Swarm did not complete: " + result.status().state());
-    }
+    return switch (componentClient.forSwarm(swarmId).method(Swarm::getResult).invoke()) {
+      case SwarmResult.Completed c -> c.resultAs(ActivityRecommendation.class);
+      case SwarmResult.Failed f -> throw new RuntimeException("Swarm failed: " + f.reason());
+      default -> throw new RuntimeException("Swarm did not complete");
+    };
   }
 }

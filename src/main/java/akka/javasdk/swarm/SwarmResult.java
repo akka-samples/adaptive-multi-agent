@@ -7,48 +7,79 @@ package akka.javasdk.swarm;
 import java.util.Optional;
 
 /**
- * Result wrapper for a swarm execution, combining status with the result.
+ * Result of a swarm execution, modeled as a sealed ADT. Each state carries only
+ * the fields relevant to it — no optional fields needed.
  *
- * @param status current swarm status
- * @param result the result object, present when the swarm has completed successfully
- * @param failureReason the failure reason, present when the swarm has failed
+ * <p>Intended to be consumed via pattern matching:
+ * <pre>{@code
+ * switch (result) {
+ *   case SwarmResult.Completed c -> c.resultAs(MyResponse.class);
+ *   case SwarmResult.Running r -> "turn " + r.currentTurn() + "/" + r.maxTurns();
+ *   case SwarmResult.Paused p -> "paused: " + p.reason().message();
+ *   case SwarmResult.Failed f -> "failed: " + f.reason();
+ *   case SwarmResult.Stopped s -> "stopped: " + s.reason();
+ * }
+ * }</pre>
  */
-public record SwarmResult(
-    SwarmStatus status,
-    Optional<Object> result,
-    Optional<String> failureReason) {
+public sealed interface SwarmResult {
 
-  public boolean isCompleted() {
-    return status.state() == SwarmStatus.State.COMPLETED;
-  }
+  /**
+   * The swarm is still executing.
+   *
+   * @param currentTurn the current turn number
+   * @param maxTurns the maximum number of turns configured
+   * @param currentAgent the agent currently being executed, if any
+   * @param currentChildSwarm the child swarm currently executing, if any
+   */
+  record Running(
+      int currentTurn,
+      int maxTurns,
+      Optional<String> currentAgent,
+      Optional<String> currentChildSwarm) implements SwarmResult {}
 
-  public boolean isFailed() {
-    return status.state() == SwarmStatus.State.FAILED;
-  }
+  /**
+   * The swarm is paused, awaiting external interaction (e.g. human approval).
+   *
+   * @param reason the reason for pausing
+   * @param currentTurn the turn at which the swarm was paused
+   * @param maxTurns the maximum number of turns configured
+   */
+  record Paused(
+      PauseReason reason,
+      int currentTurn,
+      int maxTurns) implements SwarmResult {}
 
-  public boolean isRunning() {
-    return status.state() == SwarmStatus.State.RUNNING;
-  }
+  /**
+   * The swarm completed successfully.
+   *
+   * @param result the result object, as specified by {@link SwarmParams#responseAs()}
+   */
+  record Completed(Object result) implements SwarmResult {
 
-  public boolean isPaused() {
-    return status.state() == SwarmStatus.State.PAUSED;
+    /**
+     * Get the result cast to the expected type.
+     *
+     * @param <T> the expected result type
+     * @param type the expected result class
+     * @return the typed result
+     * @throws ClassCastException if the result is not of the expected type
+     */
+    public <T> T resultAs(Class<T> type) {
+      return type.cast(result);
+    }
   }
 
   /**
-   * Get the result cast to the expected type, as specified by {@link SwarmParams#responseAs()}.
+   * The swarm failed.
    *
-   * @param <T> the expected result type
-   * @param type the expected result class
-   * @return the typed result
-   * @throws IllegalStateException if the swarm has not completed
-   * @throws ClassCastException if the result is not of the expected type
+   * @param reason the failure reason
    */
-  @SuppressWarnings("unchecked")
-  public <T> T resultAs(Class<T> type) {
-    if (!isCompleted()) {
-      throw new IllegalStateException("Swarm has not completed, current state: " + status.state());
-    }
-    return type.cast(result.orElseThrow(() ->
-        new IllegalStateException("Swarm completed but no result available")));
-  }
+  record Failed(String reason) implements SwarmResult {}
+
+  /**
+   * The swarm was explicitly stopped (terminal state, cannot resume).
+   *
+   * @param reason the reason it was stopped
+   */
+  record Stopped(String reason) implements SwarmResult {}
 }

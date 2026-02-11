@@ -17,8 +17,7 @@ import akka.annotation.DoNotInherit;
  * <p>Not for user extension. Instance methods serve as method reference targets for the
  * component client pattern:
  * <pre>{@code
- * componentClient.forSwarm()
- *     .inSession(sessionId)
+ * componentClient.forSwarm(swarmId)
  *     .method(Swarm::run)
  *     .invoke(params);
  * }</pre>
