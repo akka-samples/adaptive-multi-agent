@@ -1,10 +1,13 @@
 package demo.swarm7;
 
+import akka.NotUsed;
 import akka.javasdk.swarm.Handoff;
 import akka.javasdk.swarm.Swarm;
+import akka.javasdk.swarm.SwarmEvent;
 import akka.javasdk.swarm.SwarmParams;
 import akka.javasdk.swarm.SwarmResult;
 import akka.javasdk.swarm.client.ComponentClient;
+import akka.stream.javadsl.Source;
 
 /**
  * Content creation pipeline using a swarm — refactored from ContentWorkflow.
@@ -105,6 +108,17 @@ public class ContentCreationExample {
         .forSwarm(swarmId)
         .method(Swarm::getResult)
         .invoke();
+  }
+
+  /**
+   * Stream real-time progress events — agent handoffs, tool calls, pauses, completion.
+   * Can be exposed as SSE from an endpoint to drive a live UI.
+   */
+  public Source<SwarmEvent, NotUsed> trackProgress(String swarmId) {
+    return componentClient
+        .forSwarm(swarmId)
+        .streamMethod(Swarm::events)
+        .source();
   }
 
   /** Human approves the content. */

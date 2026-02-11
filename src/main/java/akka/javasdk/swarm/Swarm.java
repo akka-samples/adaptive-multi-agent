@@ -34,11 +34,23 @@ public abstract class Swarm {
   @DoNotInherit
   public interface Effect<T> {}
 
+  /**
+   * Marker type for streaming swarm effects, used as return type for method references
+   * that produce a stream of events.
+   *
+   * @param <T> the element type of the stream
+   */
+  @DoNotInherit
+  public interface StreamEffect<T> {}
+
   /** Start a swarm execution with the given parameters. */
   public abstract Effect<Void> run(SwarmParams params);
 
   /** Get the current result/status of this swarm. */
   public abstract Effect<SwarmResult> getResult();
+
+  /** Subscribe to real-time notification events from this swarm. */
+  public abstract StreamEffect<SwarmEvent> events();
 
   /** Pause a running swarm with the given reason. */
   public abstract Effect<Void> pause(String reason);

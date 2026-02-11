@@ -188,10 +188,10 @@ Subscribe to a real-time stream of swarm events to track progress, agent handoff
 
 ```java
 // Stream of swarm events (SSE or similar)
-Source<SwarmEvent, ?> events = componentClient
+Source<SwarmEvent, NotUsed> events = componentClient
     .forSwarm(swarmId)
-    .method(Swarm::events)
-    .stream();
+    .streamMethod(Swarm::events)
+    .source();
 
 // SwarmEvent is a sealed interface
 sealed interface SwarmEvent {

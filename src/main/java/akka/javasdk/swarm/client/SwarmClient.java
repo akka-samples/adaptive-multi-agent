@@ -9,6 +9,7 @@ import akka.japi.function.Function;
 import akka.japi.function.Function2;
 import akka.javasdk.client.ComponentMethodRef;
 import akka.javasdk.client.ComponentMethodRef1;
+import akka.javasdk.client.ComponentStreamMethodRef;
 import akka.javasdk.swarm.Swarm;
 
 /**
@@ -62,4 +63,9 @@ public interface SwarmClient {
    * Pass in a Swarm method reference that takes one argument, e.g. {@code Swarm::run}
    */
   <A1, R> ComponentMethodRef1<A1, R> method(Function2<Swarm, A1, Swarm.Effect<R>> methodRef);
+
+  /**
+   * Pass in a Swarm streaming method reference, e.g. {@code Swarm::events}
+   */
+  <R> ComponentStreamMethodRef<R> streamMethod(Function<Swarm, Swarm.StreamEffect<R>> methodRef);
 }
