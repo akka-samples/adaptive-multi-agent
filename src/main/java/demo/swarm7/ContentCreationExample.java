@@ -72,13 +72,12 @@ public class ContentCreationExample {
     this.componentClient = componentClient;
   }
 
-  public void start(String sessionId, String topic, String writingStyle) {
+  public void start(String swarmId, String topic, String writingStyle) {
 
     String userMessage = "Topic: " + topic + "\nWriting Style: " + writingStyle;
 
     componentClient
-        .forSwarm()
-        .inSession(sessionId)
+        .forSwarm(swarmId)
         .method(Swarm::run)
         .invoke(SwarmParams.builder()
             .userMessage(userMessage)
@@ -101,37 +100,33 @@ public class ContentCreationExample {
             .build());
   }
 
-  public SwarmResult checkStatus(String sessionId) {
+  public SwarmResult checkStatus(String swarmId) {
     return componentClient
-        .forSwarm()
-        .inSession(sessionId)
+        .forSwarm(swarmId)
         .method(Swarm::getResult)
         .invoke();
   }
 
   /** Human approves the content. */
-  public void approve(String sessionId) {
+  public void approve(String swarmId) {
     componentClient
-        .forSwarm()
-        .inSession(sessionId)
+        .forSwarm(swarmId)
         .method(Swarm::resume)
         .invoke("Approved. Finalize the content.");
   }
 
   /** Human requests changes — the swarm loops back through the pipeline. */
-  public void requestChanges(String sessionId, String feedback) {
+  public void requestChanges(String swarmId, String feedback) {
     componentClient
-        .forSwarm()
-        .inSession(sessionId)
+        .forSwarm(swarmId)
         .method(Swarm::resume)
         .invoke("Changes requested: " + feedback);
   }
 
   /** Human cancels the content creation. */
-  public void abort(String sessionId) {
+  public void abort(String swarmId) {
     componentClient
-        .forSwarm()
-        .inSession(sessionId)
+        .forSwarm(swarmId)
         .method(Swarm::stop)
         .invoke("User cancelled content creation.");
   }

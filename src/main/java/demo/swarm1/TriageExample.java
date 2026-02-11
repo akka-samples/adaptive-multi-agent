@@ -20,12 +20,11 @@ public class TriageExample {
     this.componentClient = componentClient;
   }
 
-  public String triage(String sessionId, String userMessage) {
+  public String triage(String swarmId, String userMessage) {
 
     // Start the swarm — the LLM decides which agent to hand off to
     componentClient
-        .forSwarm()
-        .inSession(sessionId)
+        .forSwarm(swarmId)
         .method(Swarm::run)
         .invoke(SwarmParams.builder()
             .userMessage(userMessage)
@@ -38,8 +37,7 @@ public class TriageExample {
 
     // Retrieve the result
     SwarmResult result = componentClient
-        .forSwarm()
-        .inSession(sessionId)
+        .forSwarm(swarmId)
         .method(Swarm::getResult)
         .invoke();
 

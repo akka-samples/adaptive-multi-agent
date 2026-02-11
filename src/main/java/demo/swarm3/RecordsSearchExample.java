@@ -32,7 +32,7 @@ public class RecordsSearchExample {
     this.componentClient = componentClient;
   }
 
-  public UCCSearchResult search(String sessionId, String address) {
+  public UCCSearchResult search(String swarmId, String address) {
 
     // Dynamically discover agents capable of searching public real estate records.
     // This could query an agent directory, a view, or be hardcoded.
@@ -42,8 +42,7 @@ public class RecordsSearchExample {
         + "address " + address + " where the property has been declared as collateral on a loan";
 
     componentClient
-        .forSwarm()
-        .inSession(sessionId)
+        .forSwarm(swarmId)
         .method(Swarm::run)
         .invoke(SwarmParams.builder()
             .userMessage(userInput)
@@ -54,8 +53,7 @@ public class RecordsSearchExample {
             .build());
 
     SwarmResult result = componentClient
-        .forSwarm()
-        .inSession(sessionId)
+        .forSwarm(swarmId)
         .method(Swarm::getResult)
         .invoke();
 

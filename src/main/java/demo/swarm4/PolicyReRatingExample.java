@@ -37,12 +37,11 @@ public class PolicyReRatingExample {
     this.componentClient = componentClient;
   }
 
-  public RatedPolicyOutput reRate(String sessionId, String userInput) {
+  public RatedPolicyOutput reRate(String swarmId, String userInput) {
 
     // Start the swarm — may pause if APR change exceeds threshold
     componentClient
-        .forSwarm()
-        .inSession(sessionId)
+        .forSwarm(swarmId)
         .method(Swarm::run)
         .invoke(SwarmParams.builder()
             .userMessage(userInput)
@@ -57,18 +56,17 @@ public class PolicyReRatingExample {
 
     // Check result — may be paused awaiting underwriter approval
     SwarmResult result = componentClient
-        .forSwarm()
-        .inSession(sessionId)
+        .forSwarm(swarmId)
         .method(Swarm::getResult)
         .invoke();
 
     if (result.isPaused()) {
       // Swarm is waiting for human approval.
       // An external process (e.g. underwriter UI) would later call:
-      //   componentClient.forSwarm().inSession(sessionId)
+      //   componentClient.forSwarm(swarmId)
       //       .method(Swarm::resume).invoke("Approved by underwriter Jane Doe");
       PauseReason reason = result.status().pauseReason().orElseThrow();
-      throw new AwaitingApprovalException(reason.message(), sessionId);
+      throw new AwaitingApprovalException(reason.message(), swarmId);
     }
 
     if (result.isCompleted()) {
@@ -79,15 +77,15 @@ public class PolicyReRatingExample {
   }
 
   public static class AwaitingApprovalException extends RuntimeException {
-    private final String sessionId;
+    private final String swarmId;
 
-    public AwaitingApprovalException(String message, String sessionId) {
+    public AwaitingApprovalException(String message, String swarmId) {
       super(message);
-      this.sessionId = sessionId;
+      this.swarmId = swarmId;
     }
 
-    public String sessionId() {
-      return sessionId;
+    public String swarmId() {
+      return swarmId;
     }
   }
 }

@@ -32,12 +32,11 @@ public class ActivityPlannerExample {
     this.componentClient = componentClient;
   }
 
-  public ActivityRecommendation plan(String sessionId, String userInput) {
+  public ActivityRecommendation plan(String swarmId, String userInput) {
 
     // Start the swarm with typed response — terminates when LLM conforms to ActivityRecommendation
     componentClient
-        .forSwarm()
-        .inSession(sessionId)
+        .forSwarm(swarmId)
         .method(Swarm::run)
         .invoke(SwarmParams.builder()
             .userMessage(userInput)
@@ -52,8 +51,7 @@ public class ActivityPlannerExample {
 
     // Retrieve the typed result
     SwarmResult result = componentClient
-        .forSwarm()
-        .inSession(sessionId)
+        .forSwarm(swarmId)
         .method(Swarm::getResult)
         .invoke();
 

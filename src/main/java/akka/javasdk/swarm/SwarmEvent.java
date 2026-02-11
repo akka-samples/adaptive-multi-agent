@@ -9,7 +9,7 @@ import java.time.Instant;
 /** Notification events emitted during swarm execution. */
 public sealed interface SwarmEvent {
 
-  record Started(String sessionId, Instant timestamp) implements SwarmEvent {}
+  record Started(String swarmId, Instant timestamp) implements SwarmEvent {}
 
   record AgentHandoff(String fromAgent, String toAgent, Instant timestamp) implements SwarmEvent {}
 

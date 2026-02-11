@@ -81,8 +81,7 @@ Swarms should support **recursive composition**:
 ```java
 // Example: Activity planner swarm
 componentClient
-    .forSwarm()
-    .inSession(sessionId)
+    .forSwarm(swarmId)
     .method(Swarm::run)
     .invoke(SwarmParams.builder()
         .userMessage("Suggest outdoor activities for this weekend")
@@ -107,11 +106,28 @@ componentClient
 ```
 
 **Key Features:**
-- Uses familiar `componentClient.forSwarm()` pattern
+- Uses familiar `componentClient.forSwarm(swarmId)` pattern
+- `swarmId` is both the unique instance identifier and the session ID for conversational memory shared across agents within the swarm
 - `Swarm::run` is a special method on a built-in component, returns void but throws if the swarm could not be started
 - `SwarmParams` encapsulates all configuration including the user message and expected response type
 - `responseAs(Class)` defines success termination condition
 - `maxTurns` prevents runaway loops
+
+#### Component Metadata for Observability
+
+Optionally, component metadata can be set on the swarm client for observability. These correspond to the `@Component` annotation fields on regular Akka components:
+
+```java
+componentClient
+    .forSwarm(swarmId)
+    .withComponentId("activity-planner")
+    .withComponentName("Activity Planner")
+    .withComponentDescription("Plans outdoor activities based on weather, calendar, and allergens")
+    .method(Swarm::run)
+    .invoke(params);
+```
+
+Since swarms are configured at runtime (not via class annotations), this metadata is optional and set fluently on the client. It enables filtering, grouping, and labeling swarm instances in monitoring and tracing systems.
 
 #### Retrieving the Result
 
@@ -119,15 +135,14 @@ Since `Swarm::run` is fire-and-forget, the final result must be retrieved separa
 
 ```java
 // Poll for the result
-SwarmResult<ActivityRecommendation> result = componentClient
-    .forSwarm()
-    .inSession(sessionId)
+SwarmResult result = componentClient
+    .forSwarm(swarmId)
     .method(Swarm::getResult)
     .invoke();
 
-// Check status and extract result
+// Check status and extract typed result
 if (result.isCompleted()) {
-    ActivityRecommendation recommendation = result.result().orElseThrow();
+    ActivityRecommendation recommendation = result.resultAs(ActivityRecommendation.class);
     // use recommendation
 } else if (result.isFailed()) {
     String reason = result.failureReason().orElse("unknown");
@@ -141,15 +156,18 @@ if (result.isCompleted()) {
 
 **SwarmResult model:**
 ```java
-record SwarmResult<T>(
+record SwarmResult(
     SwarmStatus status,
-    Optional<T> result,            // Present when COMPLETED
+    Optional<Object> result,       // Present when COMPLETED
     Optional<String> failureReason // Present when FAILED
 ) {
     boolean isCompleted() { return status.state() == State.COMPLETED; }
     boolean isFailed() { return status.state() == State.FAILED; }
     boolean isRunning() { return status.state() == State.RUNNING; }
     boolean isPaused() { return status.state() == State.PAUSED; }
+
+    // Typed accessor — casts the result to the expected type from responseAs()
+    <T> T resultAs(Class<T> type) { return type.cast(result.orElseThrow()); }
 }
 ```
 
@@ -160,14 +178,13 @@ Subscribe to a real-time stream of swarm events to track progress, agent handoff
 ```java
 // Stream of swarm events (SSE or similar)
 Source<SwarmEvent, ?> events = componentClient
-    .forSwarm()
-    .inSession(sessionId)
+    .forSwarm(swarmId)
     .method(Swarm::events)
     .stream();
 
 // SwarmEvent is a sealed interface
 sealed interface SwarmEvent {
-    record Started(String sessionId, Instant timestamp) implements SwarmEvent {}
+    record Started(String swarmId, Instant timestamp) implements SwarmEvent {}
     record AgentHandoff(String fromAgent, String toAgent, Instant timestamp) implements SwarmEvent {}
     record ToolCall(String agent, String toolName, Instant timestamp) implements SwarmEvent {}
     record TurnCompleted(int turn, int maxTurns, String activeAgent) implements SwarmEvent {}
@@ -235,8 +252,7 @@ When the orchestrator LLM calls a handoff to an `@Component` agent:
 ```java
 // Tools are passed just like in regular agents
 componentClient
-    .forSwarm()
-    .inSession(sessionId)
+    .forSwarm(swarmId)
     .method(Swarm::run)
     .invoke(SwarmParams.builder()
         .userMessage("Re-rate policy #12345")
@@ -261,30 +277,25 @@ Internally, handoffs are **special tools** with naming conventions like `handoff
 ```java
 // Pause a running swarm (emergency/debugging)
 componentClient
-    .forSwarm()
-    .inSession(sessionId)
+    .forSwarm(swarmId)
     .method(Swarm::pause)
-    .invoke(new PauseRequest("Emergency stop for debugging"));
+    .invoke("Emergency stop for debugging");
 
 // Resume a paused swarm
 componentClient
-    .forSwarm()
-    .inSession(sessionId)
+    .forSwarm(swarmId)
     .method(Swarm::resume)
-    .userMessage("Continue with approval granted")
-    .invoke();
+    .invoke("Continue with approval granted");
 
 // Stop a swarm (terminal, cannot resume)
 componentClient
-    .forSwarm()
-    .inSession(sessionId)
+    .forSwarm(swarmId)
     .method(Swarm::stop)
-    .invoke(new StopRequest("User cancelled operation"));
+    .invoke("User cancelled operation");
 
-// Check swarm status (same as getResult, but without type parameter)
-SwarmResult<?> status = componentClient
-    .forSwarm()
-    .inSession(sessionId)
+// Check swarm status
+SwarmResult status = componentClient
+    .forSwarm(swarmId)
     .method(Swarm::getResult)
     .invoke();
 ```
@@ -292,7 +303,7 @@ SwarmResult<?> status = componentClient
 **Status Model:**
 ```java
 record SwarmStatus(
-    String sessionId,
+    String swarmId,
     State state,          // RUNNING, PAUSED, COMPLETED, FAILED, STOPPED
     int currentTurn,
     int maxTurns,
@@ -332,8 +343,7 @@ you must:
 // - fail(reason): Explicitly fail with error
 
 componentClient
-    .forSwarm()
-    .inSession(sessionId)
+    .forSwarm(swarmId)
     .method(Swarm::run)
     .invoke(SwarmParams.builder()
         .userMessage("Re-rate policy #12345")
@@ -346,8 +356,7 @@ componentClient
 
 // Later, after human approval:
 componentClient
-    .forSwarm()
-    .inSession(sessionId)
+    .forSwarm(swarmId)
     .method(Swarm::resume)
     .invoke("Underwriter approved APR change. Continue.");
 ```
@@ -557,7 +566,7 @@ Using `AgentRegistry` to dynamically discover available handoff targets.
 The Swarm component:
 
 1. **Is a pre-built Workflow** - fixed step graph implementing the agent loop, configured at runtime via `SwarmParams`. No user class needed.
-2. **Has a dedicated API** - `componentClient.forSwarm()` with run/pause/resume/stop/getResult
+2. **Has a dedicated API** - `componentClient.forSwarm(swarmId)` with run/pause/resume/stop/getResult, plus optional observability metadata via `withComponentId/Name/Description`
 3. **Uses handoffs as function tools** - exposed to the LLM, managed by the swarm workflow with durable execution
 4. **Starts with a simple loop** - LLM-driven decisions with `maxTurns` guard. Extensible to adaptive strategies.
 5. **Supports composition** - parent pauses when spawning child swarm, child has its own session, result flows back via resume

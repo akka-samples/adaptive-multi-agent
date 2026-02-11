@@ -70,6 +70,11 @@ public interface ComponentClient {
   /** Select {@link Agent} as a call target component. */
   AgentClient forAgent();
 
-  /** Select {@link Swarm} as a call target component. */
-  SwarmClient forSwarm();
+  /**
+   * Select {@link Swarm} as a call target component.
+   *
+   * @param swarmId unique identifier for this swarm instance, also used as the session ID
+   *     for conversational memory shared across agents within the swarm
+   */
+  SwarmClient forSwarm(String swarmId);
 }

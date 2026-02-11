@@ -26,7 +26,7 @@ public class ActivityBookingExample {
     this.componentClient = componentClient;
   }
 
-  public void startBookingFlow(String sessionId, String userInput) {
+  public void startBookingFlow(String swarmId, String userInput) {
 
     // Inner swarm: activity planner (same as swarm2, reused via composition)
     var activityPlannerSwarm = SwarmParams.builder()
@@ -67,8 +67,7 @@ public class ActivityBookingExample {
 
     // Outer swarm: orchestrates the full flow with HITL pause
     componentClient
-        .forSwarm()
-        .inSession(sessionId)
+        .forSwarm(swarmId)
         .method(Swarm::run)
         .invoke(SwarmParams.builder()
             .userMessage(userInput)
@@ -104,10 +103,9 @@ public class ActivityBookingExample {
   /**
    * Check the current state — may be paused awaiting user booking confirmation.
    */
-  public SwarmResult checkStatus(String sessionId) {
+  public SwarmResult checkStatus(String swarmId) {
     return componentClient
-        .forSwarm()
-        .inSession(sessionId)
+        .forSwarm(swarmId)
         .method(Swarm::getResult)
         .invoke();
   }
@@ -115,10 +113,9 @@ public class ActivityBookingExample {
   /**
    * User confirms they want to book — resume the swarm to proceed to ticketing.
    */
-  public void confirmBooking(String sessionId) {
+  public void confirmBooking(String swarmId) {
     componentClient
-        .forSwarm()
-        .inSession(sessionId)
+        .forSwarm(swarmId)
         .method(Swarm::resume)
         .invoke("User confirmed. Proceed with booking.");
   }
@@ -126,10 +123,9 @@ public class ActivityBookingExample {
   /**
    * User declines — stop the swarm.
    */
-  public void declineBooking(String sessionId) {
+  public void declineBooking(String swarmId) {
     componentClient
-        .forSwarm()
-        .inSession(sessionId)
+        .forSwarm(swarmId)
         .method(Swarm::stop)
         .invoke("User declined booking.");
   }

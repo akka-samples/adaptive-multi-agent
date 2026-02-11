@@ -44,11 +44,10 @@ public class ContentRefinementExample {
     this.componentClient = componentClient;
   }
 
-  public ContentQuality createContent(String sessionId, String brief) {
+  public ContentQuality createContent(String swarmId, String brief) {
 
     componentClient
-        .forSwarm()
-        .inSession(sessionId)
+        .forSwarm(swarmId)
         .method(Swarm::run)
         .invoke(SwarmParams.builder()
             .userMessage(brief)
@@ -61,8 +60,7 @@ public class ContentRefinementExample {
             .build());
 
     SwarmResult result = componentClient
-        .forSwarm()
-        .inSession(sessionId)
+        .forSwarm(swarmId)
         .method(Swarm::getResult)
         .invoke();
 

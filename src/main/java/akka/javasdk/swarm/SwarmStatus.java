@@ -9,7 +9,7 @@ import java.util.Optional;
 /**
  * Status of a running or completed swarm execution.
  *
- * @param sessionId the session identifier for this swarm
+ * @param swarmId the unique identifier for this swarm instance
  * @param state current lifecycle state
  * @param currentTurn the current turn number (0-based)
  * @param maxTurns the maximum number of turns configured
@@ -18,7 +18,7 @@ import java.util.Optional;
  * @param pauseReason the reason for pausing, if the swarm is paused
  */
 public record SwarmStatus(
-    String sessionId,
+    String swarmId,
     State state,
     int currentTurn,
     int maxTurns,
