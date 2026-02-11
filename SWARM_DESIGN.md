@@ -580,6 +580,60 @@ The `inputType` also defines the schema for swarm handoff tool calls. When a par
 
 **Questions**: How does a structured input interact with the system prompt — is it injected as JSON? Should the builder enforce that `userMessage` and `inputType` are mutually exclusive, or can they coexist (structured data + free-text instructions)? For the class-based design, should `Swarm` have two type parameters `Swarm<I, R>` (input + result)?
 
+### Exposing a Swarm as MCP Server or A2A Server
+
+A swarm has a natural mapping to both the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/specification/2025-11-25) and the [Agent2Agent (A2A) protocol](https://a2a-protocol.org/latest/specification/). Exposing a swarm via these protocols would let external LLMs and agents interact with it as a remote capability — without knowing it's a swarm internally.
+
+#### MCP Server
+
+An MCP server exposes **tools**, **resources**, and **prompts** to LLM clients. A swarm maps to this as:
+
+| Swarm concept | MCP concept | Notes |
+|---|---|---|
+| `run(userMessage)` | **Tool** | A tool named after the swarm (e.g., `activity_planner`). Input schema derived from `inputType` (or string). |
+| `getResult(swarmId)` | **Resource** | `swarm://{swarmId}/result` — pollable resource for the result. |
+| `resume(swarmId, message)` | **Tool** | A follow-up tool for HITL swarms, invoked when the MCP client needs to provide input. |
+| `events()` | **MCP Tasks** (experimental) | The 2025-11-25 spec introduces async Tasks — any request can return a task handle for "call-now, fetch-later". This maps directly to the swarm's fire-and-retrieve pattern. |
+| `instructions` | **Prompt** | The swarm's instructions could be exposed as an MCP prompt template, letting the client understand what the swarm does. |
+| `resultType` | Tool output schema | The JSON schema of the result type becomes the tool's output schema. |
+
+**What's needed**:
+- An annotation or configuration to mark a swarm as MCP-exposed (e.g., `@McpExposed` or a builder option)
+- Automatic generation of MCP tool definitions from swarm metadata: name from component ID, description from `withComponentDescription`, input schema from `inputType`, output schema from `resultType`
+- HTTP/SSE transport endpoint for MCP (Akka HTTP endpoint serving the MCP protocol)
+- Mapping swarm lifecycle to MCP Tasks for long-running swarms
+- Authentication integration — MCP 2025-11-25 uses OAuth 2.1
+
+#### A2A Server
+
+The A2A protocol is designed specifically for agent-to-agent interaction. A swarm maps even more naturally:
+
+| Swarm concept | A2A concept | Notes |
+|---|---|---|
+| Swarm definition | **Agent Card** (`/.well-known/agent.json`) | Name, description, skills, endpoint, auth. The swarm's component metadata (`withComponentId/Name/Description`), `inputType`/`resultType` schemas, and handoffs populate the card. |
+| `run(userMessage)` | **SendMessage** / **SendStreamingMessage** | Creates a Task. The `swarmId` maps to A2A `taskId`, and the session maps to `contextId`. |
+| `getResult()` | **GetTask** | Polls task status and retrieves artifacts. |
+| `events()` | **SSE stream** / **SubscribeToTask** | Real-time `TaskStatusUpdateEvent` and `TaskArtifactUpdateEvent` map directly to `SwarmEvent` variants. |
+| `SwarmResult` states | **Task lifecycle states** | `Running` → `working`, `Paused` → `input_required`, `Completed` → `completed`, `Failed` → `failed`, `Stopped` → `canceled`. |
+| `resume(message)` | **Multi-turn SendMessage** | Client sends additional message referencing same `taskId` when task is in `input_required` state. This is exactly the HITL pattern. |
+| `resultType` output | **Artifacts** | The swarm result becomes an A2A Artifact with structured data parts. |
+| Swarm composition | **Agent-to-agent delegation** | A parent swarm's handoff to a child swarm is itself an A2A interaction — the parent is a client of the child's A2A server. |
+
+**What's needed**:
+- Automatic Agent Card generation from swarm metadata (component ID → name, `withComponentDescription` → description, handoffs → skills)
+- A2A HTTP endpoint implementing the protocol (SendMessage, GetTask, CancelTask, SubscribeToTask)
+- Mapping between `SwarmResult` ADT states and A2A task lifecycle states
+- SSE streaming bridge from `SwarmEvent` to A2A `TaskStatusUpdateEvent`/`TaskArtifactUpdateEvent`
+- Authentication support (API keys, OAuth2, mTLS as declared in the Agent Card)
+
+#### Key observation
+
+Both protocols benefit from the same swarm metadata: `inputType` provides the input schema, `resultType` provides the output schema, `withComponentDescription` provides the external-facing description, and the component ID provides the name. The `Typed Input` feature (above) becomes especially valuable here — it gives both MCP tools and A2A Agent Cards a proper JSON schema for their input contract, rather than just "a string".
+
+The swarm's fire-and-retrieve pattern (`run` returns void, poll `getResult`) and streaming events align particularly well with A2A's task lifecycle and MCP's experimental Tasks primitive. The HITL pause/resume pattern maps directly to A2A's `input_required` state and multi-turn messaging.
+
+**Questions**: Should this be opt-in per swarm or automatic for all swarms? Can a single swarm be exposed via both protocols simultaneously? How does authentication flow through composed swarms (parent calls child via A2A)? Should the Agent Card / MCP tool definition be generated at build time or served dynamically?
+
 ---
 
 ## Summary
