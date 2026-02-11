@@ -13,7 +13,7 @@ import java.util.Optional;
  * <p>Intended to be consumed via pattern matching:
  * <pre>{@code
  * switch (result) {
- *   case SwarmResult.Completed c -> c.resultAs(MyResponse.class);
+ *   case SwarmResult.Completed c -> c.resultAs(MyResult.class);
  *   case SwarmResult.Running r -> "turn " + r.currentTurn() + "/" + r.maxTurns();
  *   case SwarmResult.Paused p -> "paused: " + p.reason().message();
  *   case SwarmResult.Failed f -> "failed: " + f.reason();
@@ -52,7 +52,7 @@ public sealed interface SwarmResult {
   /**
    * The swarm completed successfully.
    *
-   * @param result the result object, as specified by {@link SwarmParams#responseAs()}
+   * @param result the result object, as specified by {@link SwarmParams#resultAs()}
    */
   record Completed(Object result) implements SwarmResult {
 

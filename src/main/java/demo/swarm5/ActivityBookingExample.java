@@ -88,7 +88,7 @@ public class ActivityBookingExample {
                 to complete the reservation, payment, and confirmation.
 
                 If the activity is not bookable, suggest alternatives and do not pause.""")
-            .responseAs(ActivityBookingResult.class)
+            .resultAs(ActivityBookingResult.class)
             .handoffs(
                 Handoff.toSwarm("activity-planner", activityPlannerSwarm)
                     .withDescription("Plans outdoor activities based on weather, calendar, and allergens"),

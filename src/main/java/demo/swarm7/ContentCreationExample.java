@@ -85,7 +85,7 @@ public class ContentCreationExample {
         .invoke(SwarmParams.builder()
             .userMessage(userMessage)
             .instructions(INSTRUCTIONS)
-            .responseAs(ContentResult.class)
+            .resultAs(ContentResult.class)
             .handoffs(
                 Handoff.toAgent("researcher-agent")
                     .withDescription("Researches a specific sub-topic using web search and "

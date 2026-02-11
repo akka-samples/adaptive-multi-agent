@@ -41,7 +41,7 @@ public class ActivityPlannerExample {
         .invoke(SwarmParams.builder()
             .userMessage(userInput)
             .instructions(INSTRUCTIONS)
-            .responseAs(ActivityRecommendation.class)
+            .resultAs(ActivityRecommendation.class)
             .handoffs(
                 Handoff.toAgent("weather-agent"),
                 Handoff.toAgent("calendar-agent"),

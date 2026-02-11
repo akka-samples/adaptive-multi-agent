@@ -47,7 +47,7 @@ public class RecordsSearchExample {
         .invoke(SwarmParams.builder()
             .userMessage(userInput)
             .instructions(INSTRUCTIONS)
-            .responseAs(UCCSearchResult.class)
+            .resultAs(UCCSearchResult.class)
             .handoffs(searchAgents.toArray(Handoff[]::new))
             .maxTurns(15)
             .build());

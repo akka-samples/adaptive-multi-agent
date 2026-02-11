@@ -52,7 +52,7 @@ public class ContentRefinementExample {
         .invoke(SwarmParams.builder()
             .userMessage(brief)
             .instructions(INSTRUCTIONS)
-            .responseAs(ContentQuality.class)
+            .resultAs(ContentQuality.class)
             .handoffs(
                 Handoff.toAgent("writer-agent"),
                 Handoff.toAgent("critic-agent"))

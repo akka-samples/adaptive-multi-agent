@@ -16,7 +16,7 @@ public final class SwarmParams {
 
   private final String instructions;
   private final String userMessage;
-  private final Class<?> responseType;
+  private final Class<?> resultType;
   private final List<Handoff> handoffs;
   private final List<Object> tools;
   private final int maxTurns;
@@ -24,7 +24,7 @@ public final class SwarmParams {
   private SwarmParams(Builder builder) {
     this.instructions = builder.instructions;
     this.userMessage = builder.userMessage;
-    this.responseType = builder.responseType;
+    this.resultType = builder.resultType;
     this.handoffs = builder.handoffs != null
         ? Collections.unmodifiableList(builder.handoffs)
         : List.of();
@@ -46,8 +46,8 @@ public final class SwarmParams {
     return userMessage;
   }
 
-  public Optional<Class<?>> responseType() {
-    return Optional.ofNullable(responseType);
+  public Optional<Class<?>> resultType() {
+    return Optional.ofNullable(resultType);
   }
 
   public List<Handoff> handoffs() {
@@ -65,7 +65,7 @@ public final class SwarmParams {
   public static final class Builder {
     private String instructions;
     private String userMessage;
-    private Class<?> responseType;
+    private Class<?> resultType;
     private List<Handoff> handoffs;
     private List<Object> tools;
     private int maxTurns = 10;
@@ -85,11 +85,11 @@ public final class SwarmParams {
     }
 
     /**
-     * Set the expected response type. When the LLM produces output conforming to this type,
+     * Set the expected result type. When the LLM produces output conforming to this type,
      * the swarm terminates successfully.
      */
-    public Builder responseAs(Class<?> responseType) {
-      this.responseType = responseType;
+    public Builder resultAs(Class<?> resultType) {
+      this.resultType = resultType;
       return this;
     }
 

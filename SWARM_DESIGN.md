@@ -95,7 +95,7 @@ componentClient
             If allergen levels are too high on a target day,
             exclude that day from recommendations.
             """)
-        .responseAs(ActivityRecommendation.class)  // Termination: type match
+        .resultAs(ActivityRecommendation.class)  // Termination: type match
         .handoffs(
             Handoff.toAgent("weather-agent"),
             Handoff.toAgent("calendar-agent"),
@@ -110,7 +110,7 @@ componentClient
 - `swarmId` is both the unique instance identifier and the session ID for conversational memory shared across agents within the swarm
 - `Swarm::run` is a special method on a built-in component, returns void but throws if the swarm could not be started
 - `SwarmParams` encapsulates all configuration including the user message and expected response type
-- `responseAs(Class)` defines success termination condition
+- `resultAs(Class)` defines success termination condition
 - `maxTurns` prevents runaway loops
 
 #### Component Metadata for Observability
@@ -223,7 +223,7 @@ var handoff3 = Handoff.toSwarm(
             Handoff.toAgent("ticketing-agent"),
             Handoff.toAgent("payment-agent")
         )
-        .responseAs(BookingConfirmation.class)
+        .resultAs(BookingConfirmation.class)
         .maxTurns(5)
         .build()
 );
@@ -268,7 +268,7 @@ componentClient
     .invoke(SwarmParams.builder()
         .userMessage("Re-rate policy #12345")
         .instructions("...")
-        .responseAs(PolicyRating.class)
+        .resultAs(PolicyRating.class)
         .tools(policyService, ratingEngine, notificationService)
         .handoffs(
             Handoff.toAgent("records-agent"),
@@ -359,7 +359,7 @@ componentClient
     .invoke(SwarmParams.builder()
         .userMessage("Re-rate policy #12345")
         .instructions(INSTRUCTIONS)
-        .responseAs(ReratedPolicy.class)
+        .resultAs(ReratedPolicy.class)
         .tools(notificationService, policyDatabase)
         .handoffs(Handoff.toAgent("compliance-agent"))
         .maxTurns(20)
@@ -403,7 +403,7 @@ Each time the orchestrator LLM responds, the runtime inspects the response and a
 | **`complete(result)` built-in tool** | Terminate successfully with the given result |
 | **`pause_for_approval(reason)`** | Pause workflow for HITL. On resume, continue conversation |
 | **`fail(reason)`** | Terminate with failure |
-| **Response matching `responseAs` type** | Terminate successfully (type-match termination) |
+| **Response matching `resultAs` type** | Terminate successfully (type-match termination) |
 | **Clean text response** (no tool calls) | Terminate (orchestrator is done) |
 
 After each round trip the runtime also checks guards: max rounds exceeded? guardrail violated?

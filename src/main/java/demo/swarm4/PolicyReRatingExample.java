@@ -45,7 +45,7 @@ public class PolicyReRatingExample {
         .invoke(SwarmParams.builder()
             .userMessage(userInput)
             .instructions(INSTRUCTIONS)
-            .responseAs(RatedPolicyOutput.class)
+            .resultAs(RatedPolicyOutput.class)
             .tools(underwriterNotifier)
             .handoffs(
                 Handoff.toAgent("policy-records-agent")
