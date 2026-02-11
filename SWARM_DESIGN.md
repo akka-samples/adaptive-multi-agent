@@ -344,12 +344,12 @@ Re-rate insurance policies according to current market conditions.
 If the new APR differs by more than 0.5% from the current rate,
 you must:
 1. Use the notification tool to alert the underwriting team
-2. Use the pause_for_approval tool with reason "APR_CHANGE"
+2. Use the pause tool with reason "APPROVAL_NEEDED"
 3. Wait for external approval before continuing
 """;
 
 // Built-in tools available to all swarms:
-// - pause_for_approval(reason, context): Pause swarm for HITL
+// - pause(reason, context): Pause swarm for HITL
 // - complete(result): Explicitly complete with result
 // - fail(reason): Explicitly fail with error
 
@@ -369,7 +369,7 @@ componentClient
 componentClient
     .forSwarm(swarmId)
     .method(Swarm::resume)
-    .invoke("Underwriter approved APR change. Continue.");
+    .invoke("Underwriter approved change. Continue.");
 ```
 
 ---
@@ -396,12 +396,12 @@ The orchestrator LLM sees handoffs as ordinary tool calls. It calls `handoff_to_
 Each time the orchestrator LLM responds, the runtime inspects the response and acts accordingly:
 
 | Orchestrator response contains... | Runtime action |
-|----------------------------------|----------------|
+|---------------------|----------------|
 | **Regular tool calls** | Execute tools, feed results back to orchestrator, continue conversation |
 | **Agent handoff call** | Call the target agent (as a durable workflow step), feed the agent's response back to the orchestrator as the tool result, continue conversation |
 | **Swarm handoff call** | Spawn child swarm, pause parent. When child completes, feed its result back to the orchestrator, continue conversation |
 | **`complete(result)` built-in tool** | Terminate successfully with the given result |
-| **`pause_for_approval(reason)`** | Pause workflow for HITL. On resume, continue conversation |
+| **`pause(reason)`** | Pause workflow for HITL. On resume, continue conversation |
 | **`fail(reason)`** | Terminate with failure |
 | **Response matching `resultAs` type** | Terminate successfully (type-match termination) |
 | **Clean text response** (no tool calls) | Terminate (orchestrator is done) |
@@ -441,7 +441,7 @@ The swarm runtime injects these as available tools in the system prompt:
 | Built-in tool | LLM invokes when... | Runtime effect |
 |---------------|---------------------|----------------|
 | `complete(result)` | Goal achieved, explicit result | Terminates successfully |
-| `pause_for_approval(reason, context)` | Needs human decision | Pauses workflow |
+| `pause(reason, context)` | Needs human decision | Pauses workflow |
 | `fail(reason)` | Cannot continue | Terminates with failure |
 
 ### Loop strategies (extensibility)
