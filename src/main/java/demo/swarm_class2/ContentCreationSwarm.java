@@ -5,6 +5,10 @@ import akka.javasdk.swarm_class.Handoff;
 import akka.javasdk.swarm_class2.Swarm;
 import akka.javasdk.swarm_class.SwarmParams;
 import demo.swarm7.ContentResult;
+import demo.swarm7.EditorAgent;
+import demo.swarm7.EvaluatorAgent;
+import demo.swarm7.ResearcherAgent;
+import demo.swarm7.WriterAgent;
 
 /**
  * Content creation pipeline swarm — multi-phase: research, write, edit, evaluate, HITL approval.
@@ -55,16 +59,16 @@ public class ContentCreationSwarm extends Swarm<String, ContentResult> {
             - If the message contains change requests, treat it as evaluator feedback
               and loop back through research → write → edit → evaluate""")
         .handoffs(
-            Handoff.toAgent("researcher-agent")
+            Handoff.toAgent(ResearcherAgent.class)
                 .withDescription("Researches a specific sub-topic using web search and "
                     + "web page fetching. Returns synthesized findings."),
-            Handoff.toAgent("writer-agent")
+            Handoff.toAgent(WriterAgent.class)
                 .withDescription("Writes content based on a topic, research facts, "
                     + "and a writing style."),
-            Handoff.toAgent("editor-agent")
+            Handoff.toAgent(EditorAgent.class)
                 .withDescription("Polishes a draft for grammar, flow, readability, "
                     + "and professional tone."),
-            Handoff.toAgent("evaluator-agent")
+            Handoff.toAgent(EvaluatorAgent.class)
                 .withDescription("Evaluates content quality against the topic. Returns "
                     + "isComplete (boolean) and feedback (string)."))
         .maxTurns(25)

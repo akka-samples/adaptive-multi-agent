@@ -4,6 +4,8 @@ import akka.javasdk.annotations.Component;
 import akka.javasdk.swarm_class.Handoff;
 import akka.javasdk.swarm_class2.Swarm;
 import akka.javasdk.swarm_class.SwarmParams;
+import demo.swarm1.EnglishAgent;
+import demo.swarm1.SpanishAgent;
 
 /**
  * Triage swarm — routes to the appropriate agent based on the language of the request.
@@ -19,8 +21,8 @@ public class TriageSwarm extends Swarm<String, String> {
     return SwarmParams.builder()
         .instructions("Handoff to the appropriate agent based on the language of the request.")
         .handoffs(
-            Handoff.toAgent("spanish-agent"),
-            Handoff.toAgent("english-agent"))
+            Handoff.toAgent(SpanishAgent.class),
+            Handoff.toAgent(EnglishAgent.class))
         .maxTurns(3)
         .build();
   }

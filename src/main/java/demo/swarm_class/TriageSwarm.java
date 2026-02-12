@@ -3,6 +3,8 @@ package demo.swarm_class;
 import akka.javasdk.annotations.Component;
 import akka.javasdk.swarm_class.Handoff;
 import akka.javasdk.swarm_class.Swarm;
+import demo.swarm1.EnglishAgent;
+import demo.swarm1.SpanishAgent;
 
 import java.util.List;
 
@@ -23,8 +25,8 @@ public class TriageSwarm extends Swarm<String, String> {
   @Override
   protected List<Handoff> handoffs() {
     return List.of(
-        Handoff.toAgent("spanish-agent"),
-        Handoff.toAgent("english-agent"));
+        Handoff.toAgent(SpanishAgent.class),
+        Handoff.toAgent(EnglishAgent.class));
   }
 
   @Override

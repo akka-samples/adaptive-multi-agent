@@ -4,6 +4,10 @@ import akka.javasdk.annotations.Component;
 import akka.javasdk.swarm_class.Handoff;
 import akka.javasdk.swarm_class.Swarm;
 import demo.swarm7.ContentResult;
+import demo.swarm7.EditorAgent;
+import demo.swarm7.EvaluatorAgent;
+import demo.swarm7.ResearcherAgent;
+import demo.swarm7.WriterAgent;
 
 import java.util.List;
 
@@ -63,16 +67,16 @@ public class ContentCreationSwarm extends Swarm<String, ContentResult> {
   @Override
   protected List<Handoff> handoffs() {
     return List.of(
-        Handoff.toAgent("researcher-agent")
+        Handoff.toAgent(ResearcherAgent.class)
             .withDescription("Researches a specific sub-topic using web search and "
                 + "web page fetching. Returns synthesized findings."),
-        Handoff.toAgent("writer-agent")
+        Handoff.toAgent(WriterAgent.class)
             .withDescription("Writes content based on a topic, research facts, "
                 + "and a writing style."),
-        Handoff.toAgent("editor-agent")
+        Handoff.toAgent(EditorAgent.class)
             .withDescription("Polishes a draft for grammar, flow, readability, "
                 + "and professional tone."),
-        Handoff.toAgent("evaluator-agent")
+        Handoff.toAgent(EvaluatorAgent.class)
             .withDescription("Evaluates content quality against the topic. Returns "
                 + "isComplete (boolean) and feedback (string)."));
   }

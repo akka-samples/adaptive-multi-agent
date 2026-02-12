@@ -5,6 +5,8 @@ import akka.javasdk.swarm_class.Handoff;
 import akka.javasdk.swarm_class2.Swarm;
 import akka.javasdk.swarm_class.SwarmParams;
 import demo.swarm6.ContentQuality;
+import demo.swarm6.CriticAgent;
+import demo.swarm6.WriterAgent;
 
 /**
  * Iterative refinement swarm — a writer-critic loop.
@@ -33,8 +35,8 @@ public class ContentRefinementSwarm extends Swarm<String, ContentQuality> {
 
             If you reach the turn limit without approval, use the best version so far.""")
         .handoffs(
-            Handoff.toAgent("writer-agent"),
-            Handoff.toAgent("critic-agent"))
+            Handoff.toAgent(WriterAgent.class),
+            Handoff.toAgent(CriticAgent.class))
         .maxTurns(8)
         .build();
   }

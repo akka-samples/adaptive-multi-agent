@@ -10,6 +10,10 @@ import akka.javasdk.swarm_class.Handoff;
 import akka.javasdk.swarm_class.SwarmParams;
 import akka.javasdk.swarm_class.SwarmResult;
 import akka.javasdk.swarm_class.client.ComponentClient;
+import demo.swarm7.EditorAgent;
+import demo.swarm7.EvaluatorAgent;
+import demo.swarm7.ResearcherAgent;
+import demo.swarm7.WriterAgent;
 
 import java.util.UUID;
 
@@ -166,15 +170,15 @@ public class SwarmEndpoint {
                 6. Once fact-checked and polished, evaluate with the evaluator agent
                 7. When approved, PAUSE for human review""")
             .handoffs(
-                Handoff.toAgent("researcher-agent")
+                Handoff.toAgent(ResearcherAgent.class)
                     .withDescription("Researches a specific sub-topic using web search"),
-                Handoff.toAgent("writer-agent")
+                Handoff.toAgent(WriterAgent.class)
                     .withDescription("Writes content based on research and style"),
-                Handoff.toAgent("editor-agent")
+                Handoff.toAgent(EditorAgent.class)
                     .withDescription("Polishes a draft for grammar and readability"),
                 Handoff.toAgent("fact-checker-agent")
                     .withDescription("Verifies factual claims and flags inaccuracies"),
-                Handoff.toAgent("evaluator-agent")
+                Handoff.toAgent(EvaluatorAgent.class)
                     .withDescription("Evaluates content quality and completeness"))
             .maxTurns(30)
             .build())

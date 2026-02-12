@@ -5,6 +5,9 @@ import akka.javasdk.swarm_class.Handoff;
 import akka.javasdk.swarm_class2.Swarm;
 import akka.javasdk.swarm_class.SwarmParams;
 import demo.swarm2.ActivityRecommendation;
+import demo.swarm2.AllergenAgent;
+import demo.swarm2.CalendarAgent;
+import demo.swarm2.WeatherAgent;
 
 /**
  * Activity planner swarm — simple case where parameters are static.
@@ -20,9 +23,9 @@ public class ActivityPlannerSwarm extends Swarm<String, ActivityRecommendation> 
             availability, and allergen levels. Recommend outdoor activities that are
             safe and enjoyable. Exclude days with high allergen levels or calendar conflicts.""")
         .handoffs(
-            Handoff.toAgent("weather-agent"),
-            Handoff.toAgent("calendar-agent"),
-            Handoff.toAgent("allergen-agent"))
+            Handoff.toAgent(WeatherAgent.class),
+            Handoff.toAgent(CalendarAgent.class),
+            Handoff.toAgent(AllergenAgent.class))
         .maxTurns(10)
         .build();
   }

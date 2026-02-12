@@ -4,6 +4,8 @@ import akka.javasdk.annotations.Component;
 import akka.javasdk.swarm_class.Handoff;
 import akka.javasdk.swarm_class.Swarm;
 import demo.swarm6.ContentQuality;
+import demo.swarm6.CriticAgent;
+import demo.swarm6.WriterAgent;
 
 import java.util.List;
 
@@ -46,8 +48,8 @@ public class ContentRefinementSwarm extends Swarm<String, ContentQuality> {
   @Override
   protected List<Handoff> handoffs() {
     return List.of(
-        Handoff.toAgent("writer-agent"),
-        Handoff.toAgent("critic-agent"));
+        Handoff.toAgent(WriterAgent.class),
+        Handoff.toAgent(CriticAgent.class));
   }
 
   @Override

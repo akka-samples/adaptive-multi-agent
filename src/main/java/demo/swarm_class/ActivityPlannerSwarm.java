@@ -4,6 +4,9 @@ import akka.javasdk.annotations.Component;
 import akka.javasdk.swarm_class.Handoff;
 import akka.javasdk.swarm_class.Swarm;
 import demo.swarm2.ActivityRecommendation;
+import demo.swarm2.AllergenAgent;
+import demo.swarm2.CalendarAgent;
+import demo.swarm2.WeatherAgent;
 
 import java.util.List;
 
@@ -25,9 +28,9 @@ public class ActivityPlannerSwarm extends Swarm<String, ActivityRecommendation> 
   @Override
   protected List<Handoff> handoffs() {
     return List.of(
-        Handoff.toAgent("weather-agent"),
-        Handoff.toAgent("calendar-agent"),
-        Handoff.toAgent("allergen-agent"));
+        Handoff.toAgent(WeatherAgent.class),
+        Handoff.toAgent(CalendarAgent.class),
+        Handoff.toAgent(AllergenAgent.class));
   }
 
   @Override
