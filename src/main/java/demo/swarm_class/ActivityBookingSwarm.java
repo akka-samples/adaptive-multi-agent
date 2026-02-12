@@ -8,12 +8,11 @@ import demo.swarm5.ActivityBookingResult;
 import java.util.List;
 
 /**
- * Swarm-of-swarms booking example — equivalent to swarm5 using the class-based design.
+ * Swarm-of-swarms booking example — demonstrates dynamic handoffs based on input.
  *
- * <p>Demonstrates composition: the outer swarm hands off to inner swarms (activity planner,
- * ticketing) and individual agents (bookability). The parent pauses while a child swarm runs.
- *
- * <p>Both agent and swarm handoffs use the same symmetric pattern — by class or by ID.
+ * <p>Uses {@link #getInput()} to decide whether to include booking handoffs.
+ * If the user wants to book, the ticketing swarm and bookability agent are available.
+ * Otherwise, only the activity planner is offered.
  */
 @Component(id = "activity-booking")
 public class ActivityBookingSwarm extends Swarm<String, ActivityBookingResult> {
@@ -21,33 +20,39 @@ public class ActivityBookingSwarm extends Swarm<String, ActivityBookingResult> {
   @Override
   protected String instructions() {
     return """
-        You coordinate an end-to-end activity recommendation and booking flow.
+        You coordinate activity recommendations and optional booking.
 
         Step 1: Hand off to the activity planner to get recommendations based
         on the user's input, weather, availability, and allergen levels.
 
-        Step 2: Once you have a recommendation, hand off to the bookability
-        agent to check if tickets or reservations are available for that activity.
+        Step 2: If the user wants to book, hand off to the bookability agent
+        to check availability. If bookable, PAUSE for user confirmation.
+        When resumed, hand off to the ticketing swarm to complete the booking.
 
-        Step 3: If the activity is bookable, PAUSE and wait for user confirmation.
-        Include the activity details, date, location, and estimated price in
-        the pause message so the user can make an informed decision.
-
-        Step 4: When resumed (user confirmed), hand off to the ticketing swarm
-        to complete the reservation, payment, and confirmation.
-
-        If the activity is not bookable, suggest alternatives and do not pause.""";
+        If the user only wants recommendations (no booking), compile the
+        activity suggestions and complete.""";
   }
 
   @Override
   protected List<Handoff> handoffs() {
-    return List.of(
-        Handoff.toSwarm(ActivityPlannerSwarm.class)
-            .withDescription("Plans outdoor activities based on weather, calendar, and allergens"),
-        Handoff.toAgent("bookability-agent")
-            .withDescription("Checks if an activity can be booked and returns availability and pricing"),
-        Handoff.toSwarm(TicketingSwarm.class)
-            .withDescription("Handles ticket reservation, payment, and booking confirmation"));
+    String input = getInput();
+    boolean wantsBooking = input.toLowerCase().contains("book")
+        || input.toLowerCase().contains("reserve")
+        || input.toLowerCase().contains("ticket");
+
+    if (wantsBooking) {
+      return List.of(
+          Handoff.toSwarm(ActivityPlannerSwarm.class)
+              .withDescription("Plans outdoor activities based on weather, calendar, and allergens"),
+          Handoff.toAgent("bookability-agent")
+              .withDescription("Checks if an activity can be booked"),
+          Handoff.toSwarm(TicketingSwarm.class)
+              .withDescription("Handles ticket reservation, payment, and confirmation"));
+    } else {
+      return List.of(
+          Handoff.toSwarm(ActivityPlannerSwarm.class)
+              .withDescription("Plans outdoor activities based on weather, calendar, and allergens"));
+    }
   }
 
   @Override
@@ -57,8 +62,13 @@ public class ActivityBookingSwarm extends Swarm<String, ActivityBookingResult> {
 
   @Override
   protected int maxTurns() {
-    return 15;
+    String input = getInput();
+    boolean wantsBooking = input.toLowerCase().contains("book")
+        || input.toLowerCase().contains("reserve")
+        || input.toLowerCase().contains("ticket");
+    return wantsBooking ? 15 : 10;
   }
+
   // Workaround: Akka annotation processor requires a public method returning
   // Workflow.Effect on the concrete class. Not needed with a real Swarm component type.
   @Override

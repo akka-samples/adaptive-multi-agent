@@ -9,10 +9,11 @@ import demo.swarm4.UnderwriterNotifier;
 import java.util.List;
 
 /**
- * Insurance policy re-rating swarm with HITL — equivalent to swarm4 using the class-based design.
+ * Insurance policy re-rating swarm — demonstrates dynamic tools based on input.
  *
- * <p>The swarm analyses policies and produces hypothetical re-ratings. If the APR change
- * exceeds 0.5%, the orchestrator pauses for underwriter approval before completing.
+ * <p>Uses {@link #getInput()} to decide whether to include the underwriter
+ * notification tool. Only "commercial" or "high-value" policies require the
+ * approval workflow.
  */
 @Component(id = "policy-re-rating")
 public class PolicyReRatingSwarm extends Swarm<String, RatedPolicyOutput> {
@@ -21,17 +22,12 @@ public class PolicyReRatingSwarm extends Swarm<String, RatedPolicyOutput> {
   protected String instructions() {
     return """
         Perform on-demand analysis of the insurance policies identified in the user input
-        and reply with hypothetical changes to those policies based on the additional fields
-        in user input.
+        and reply with hypothetical changes based on the additional fields in user input.
 
         Use the records agent to retrieve current policy data and rating history.
 
-        If the value of a customer's Annual Percentage Rate in the hypothetical is more than
-        0.5% different than the current rating, you will send a notification to the underwriting
-        team with a diff comparison of the old and new policies using the notifyUnderwriter tool.
-        You will also pause and await external interaction from authorised personnel.
-
-        Once approval is received, finalize the re-rated policy output.""";
+        If the APR change exceeds 0.5%, notify the underwriting team and pause
+        for approval before finalizing.""";
   }
 
   @Override
@@ -48,7 +44,14 @@ public class PolicyReRatingSwarm extends Swarm<String, RatedPolicyOutput> {
 
   @Override
   protected List<Object> tools() {
-    return List.of(new UnderwriterNotifier());
+    String input = getInput();
+    boolean requiresApproval = input.contains("commercial")
+        || input.contains("high-value");
+
+    if (requiresApproval) {
+      return List.of(new UnderwriterNotifier());
+    }
+    return List.of();
   }
 
   @Override
