@@ -3,7 +3,7 @@ package demo.swarm_class2;
 import akka.javasdk.annotations.Component;
 import akka.javasdk.swarm_class.Handoff;
 import akka.javasdk.swarm_class2.Swarm;
-import akka.javasdk.swarm_class2.SwarmParams;
+import akka.javasdk.swarm_class.SwarmParams;
 import demo.swarm3.UCCSearchResult;
 
 import java.util.List;

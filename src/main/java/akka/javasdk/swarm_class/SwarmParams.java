@@ -2,9 +2,9 @@
  * Copyright (C) 2021-2025 Lightbend Inc. <https://www.lightbend.com>
  */
 
-package akka.javasdk.swarm_class2;
+package akka.javasdk.swarm_class;
 
-import akka.javasdk.swarm_class.Handoff;
+import akka.javasdk.swarm_class2.Swarm;
 
 import java.util.Arrays;
 import java.util.Collections;

@@ -6,6 +6,7 @@ package akka.javasdk.swarm_class2;
 
 import akka.NotUsed;
 import akka.javasdk.swarm.SwarmEvent;
+import akka.javasdk.swarm_class.SwarmParams;
 import akka.javasdk.swarm_class.SwarmResult;
 import akka.javasdk.swarm_class.SwarmState;
 import akka.javasdk.workflow.Workflow;
