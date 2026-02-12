@@ -10,10 +10,10 @@ import demo.swarm6.ContentQuality;
  * Iterative refinement swarm — a writer-critic loop.
  */
 @Component(id = "content-refinement-v2")
-public class ContentRefinementSwarm extends Swarm<ContentQuality> {
+public class ContentRefinementSwarm extends Swarm<String, ContentQuality> {
 
   @Override
-  protected SwarmParams parameters(String userMessage) {
+  protected SwarmParams parameters() {
     return SwarmParams.builder()
         .instructions("""
             You coordinate a content creation and refinement process.
@@ -47,7 +47,7 @@ public class ContentRefinementSwarm extends Swarm<ContentQuality> {
   // Workaround: Akka annotation processor requires a public method returning
   // Workflow.Effect on the concrete class. Not needed with a real Swarm component type.
   @Override
-  public Effect<Void> run(String userMessage) {
-    return super.run(userMessage);
+  public Effect<Void> run(String input) {
+    return super.run(input);
   }
 }

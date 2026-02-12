@@ -12,51 +12,63 @@ import akka.javasdk.workflow.Workflow;
 import akka.stream.javadsl.Source;
 
 /**
- * Alternative class-based swarm design with a single {@link #parameters(String)} method.
+ * Class-based swarm with typed input and result.
  *
- * <p>Instead of separate abstract methods for instructions, handoffs, and tools,
- * this design uses one method that receives the user input and returns a {@link SwarmParams}.
- * This allows the swarm to dynamically configure itself based on the input — e.g.,
- * choosing different handoffs or instructions depending on what the user asked for.
+ * <p>Two type parameters define the swarm's contract:
+ * <ul>
+ *   <li>{@code A} — the input type, passed to {@link #run(Object)} and available
+ *       via {@link #getInput()} when configuring the swarm in {@link #parameters()}</li>
+ *   <li>{@code B} — the result type, carried through to {@link SwarmResult.Completed#result()}</li>
+ * </ul>
  *
- * <p>The result type {@code R} is still a class-level type parameter with a separate
- * {@link #resultType()} method, since it defines the swarm's contract and doesn't
- * change per invocation.
+ * <p>The single {@link #parameters()} method returns a {@link SwarmParams} that configures
+ * instructions, handoffs, and tools. It can use {@link #getInput()} to dynamically
+ * choose different configurations based on the input content.
  *
- * @param <R> the result type produced when the swarm completes successfully
+ * @param <A> the input type accepted by {@link #run(Object)}
+ * @param <B> the result type produced when the swarm completes successfully
  */
-public abstract class Swarm<R>
+public abstract class Swarm<A, B>
     // Real implementation will probably not extend Workflow like this
     extends Workflow<SwarmState> {
 
   // ========== User defines the swarm by overriding these ==========
 
   /**
-   * Configure the swarm for a given user input. Called when {@link #run(String)} is invoked.
+   * Configure the swarm. Called when {@link #run(Object)} is invoked.
    *
-   * <p>The user message is passed in so the swarm can dynamically choose instructions,
-   * handoffs, and tools based on the input content.
+   * <p>Use {@link #getInput()} to access the input and dynamically choose
+   * instructions, handoffs, and tools based on the input content.
    *
-   * @param userMessage the input that initiated the swarm
    * @return the swarm configuration to use for this execution
    */
-  protected abstract SwarmParams parameters(String userMessage);
+  protected abstract SwarmParams parameters();
 
   /**
    * The expected result type. When the LLM produces output conforming to this type,
    * the swarm terminates successfully.
    */
-  protected abstract Class<R> resultType();
+  protected abstract Class<B> resultType();
+
+  // ========== Input accessor ==========
+
+  /**
+   * Access the input that was passed to {@link #run(Object)}.
+   * Available for use in {@link #parameters()} to dynamically configure the swarm.
+   */
+  protected A getInput() {
+    return null; // provided by runtime
+  }
 
   // ========== Built-in command handlers ==========
 
-  /** Start the swarm with a user message. */
-  public Effect<Void> run(String userMessage) {
+  /** Start the swarm with the given input. */
+  public Effect<Void> run(A input) {
     return null; // just dummy prototype
   }
 
   /** Get the current result/status as a fully-typed SwarmResult. */
-  public ReadOnlyEffect<SwarmResult<R>> getResult() {
+  public ReadOnlyEffect<SwarmResult<B>> getResult() {
     if (currentState() == null) {
       return effects().error("Swarm not started");
     }

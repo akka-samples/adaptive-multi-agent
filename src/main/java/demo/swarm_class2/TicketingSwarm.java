@@ -10,10 +10,10 @@ import demo.swarm5.ActivityBookingResult;
  * Ticketing swarm — handles reservation, payment, and confirmation.
  */
 @Component(id = "ticketing-v2")
-public class TicketingSwarm extends Swarm<ActivityBookingResult> {
+public class TicketingSwarm extends Swarm<String, ActivityBookingResult> {
 
   @Override
-  protected SwarmParams parameters(String userMessage) {
+  protected SwarmParams parameters() {
     return SwarmParams.builder()
         .instructions("""
             Book tickets for the activity that was recommended and approved by the user.
@@ -43,7 +43,7 @@ public class TicketingSwarm extends Swarm<ActivityBookingResult> {
   // Workaround: Akka annotation processor requires a public method returning
   // Workflow.Effect on the concrete class. Not needed with a real Swarm component type.
   @Override
-  public Effect<Void> run(String userMessage) {
-    return super.run(userMessage);
+  public Effect<Void> run(String input) {
+    return super.run(input);
   }
 }

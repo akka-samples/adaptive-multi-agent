@@ -14,12 +14,13 @@ import demo.swarm4.UnderwriterNotifier;
  * that require human approval workflows.
  */
 @Component(id = "policy-re-rating-v2")
-public class PolicyReRatingSwarm extends Swarm<RatedPolicyOutput> {
+public class PolicyReRatingSwarm extends Swarm<String, RatedPolicyOutput> {
 
   @Override
-  protected SwarmParams parameters(String userMessage) {
-    boolean requiresApproval = userMessage.contains("commercial")
-        || userMessage.contains("high-value");
+  protected SwarmParams parameters() {
+    String input = getInput();
+    boolean requiresApproval = input.contains("commercial")
+        || input.contains("high-value");
 
     var builder = SwarmParams.builder()
         .instructions("""
@@ -50,7 +51,7 @@ public class PolicyReRatingSwarm extends Swarm<RatedPolicyOutput> {
   // Workaround: Akka annotation processor requires a public method returning
   // Workflow.Effect on the concrete class. Not needed with a real Swarm component type.
   @Override
-  public Effect<Void> run(String userMessage) {
-    return super.run(userMessage);
+  public Effect<Void> run(String input) {
+    return super.run(input);
   }
 }

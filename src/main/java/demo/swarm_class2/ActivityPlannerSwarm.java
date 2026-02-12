@@ -8,13 +8,12 @@ import demo.swarm2.ActivityRecommendation;
 
 /**
  * Activity planner swarm — simple case where parameters are static.
- * Equivalent to the swarm_class version, showing the builder pattern.
  */
 @Component(id = "activity-planner-v2")
-public class ActivityPlannerSwarm extends Swarm<ActivityRecommendation> {
+public class ActivityPlannerSwarm extends Swarm<String, ActivityRecommendation> {
 
   @Override
-  protected SwarmParams parameters(String userMessage) {
+  protected SwarmParams parameters() {
     return SwarmParams.builder()
         .instructions("""
             Using the available handoffs, gather information about weather, calendar
@@ -36,7 +35,7 @@ public class ActivityPlannerSwarm extends Swarm<ActivityRecommendation> {
   // Workaround: Akka annotation processor requires a public method returning
   // Workflow.Effect on the concrete class. Not needed with a real Swarm component type.
   @Override
-  public Effect<Void> run(String userMessage) {
-    return super.run(userMessage);
+  public Effect<Void> run(String input) {
+    return super.run(input);
   }
 }

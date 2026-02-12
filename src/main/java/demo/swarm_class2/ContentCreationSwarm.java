@@ -10,10 +10,10 @@ import demo.swarm7.ContentResult;
  * Content creation pipeline swarm — multi-phase: research, write, edit, evaluate, HITL approval.
  */
 @Component(id = "content-creation-v2")
-public class ContentCreationSwarm extends Swarm<ContentResult> {
+public class ContentCreationSwarm extends Swarm<String, ContentResult> {
 
   @Override
-  protected SwarmParams parameters(String userMessage) {
+  protected SwarmParams parameters() {
     return SwarmParams.builder()
         .instructions("""
             You are a content production orchestrator. Your goal is to produce a high-quality
@@ -79,7 +79,7 @@ public class ContentCreationSwarm extends Swarm<ContentResult> {
   // Workaround: Akka annotation processor requires a public method returning
   // Workflow.Effect on the concrete class. Not needed with a real Swarm component type.
   @Override
-  public Effect<Void> run(String userMessage) {
-    return super.run(userMessage);
+  public Effect<Void> run(String input) {
+    return super.run(input);
   }
 }

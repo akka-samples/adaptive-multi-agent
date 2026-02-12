@@ -7,23 +7,20 @@ import akka.javasdk.swarm_class2.SwarmParams;
 import demo.swarm5.ActivityBookingResult;
 
 /**
- * Activity booking swarm — demonstrates dynamic configuration based on user input.
+ * Activity booking swarm — demonstrates dynamic configuration based on input.
  *
- * <p>The {@code parameters()} method inspects the user message to decide which
+ * <p>The {@code parameters()} method uses {@code getInput()} to decide which
  * handoffs to include. If the user wants to book, the ticketing swarm is available.
- * If they just want recommendations, only the planner is offered.
- *
- * <p>This is the key advantage of the single {@code parameters()} method over
- * separate abstract methods — the swarm shape can vary per invocation.
  */
 @Component(id = "activity-booking-v2")
-public class ActivityBookingSwarm extends Swarm<ActivityBookingResult> {
+public class ActivityBookingSwarm extends Swarm<String, ActivityBookingResult> {
 
   @Override
-  protected SwarmParams parameters(String userMessage) {
-    boolean wantsBooking = userMessage.toLowerCase().contains("book")
-        || userMessage.toLowerCase().contains("reserve")
-        || userMessage.toLowerCase().contains("ticket");
+  protected SwarmParams parameters() {
+    String input = getInput();
+    boolean wantsBooking = input.toLowerCase().contains("book")
+        || input.toLowerCase().contains("reserve")
+        || input.toLowerCase().contains("ticket");
 
     var builder = SwarmParams.builder()
         .instructions("""
@@ -49,7 +46,6 @@ public class ActivityBookingSwarm extends Swarm<ActivityBookingResult> {
           Handoff.toSwarm(TicketingSwarm.class)
               .withDescription("Handles ticket reservation, payment, and confirmation"));
     } else {
-      // Simpler swarm — no booking handoffs, fewer turns needed
       builder
           .handoffs(
               Handoff.toSwarm(ActivityPlannerSwarm.class)
@@ -68,7 +64,7 @@ public class ActivityBookingSwarm extends Swarm<ActivityBookingResult> {
   // Workaround: Akka annotation processor requires a public method returning
   // Workflow.Effect on the concrete class. Not needed with a real Swarm component type.
   @Override
-  public Effect<Void> run(String userMessage) {
-    return super.run(userMessage);
+  public Effect<Void> run(String input) {
+    return super.run(input);
   }
 }
