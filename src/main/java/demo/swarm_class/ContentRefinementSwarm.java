@@ -20,7 +20,7 @@ import java.util.List;
  * </ol>
  */
 @Component(id = "content-refinement")
-public class ContentRefinementSwarm extends Swarm<ContentQuality> {
+public class ContentRefinementSwarm extends Swarm<String, ContentQuality> {
 
   @Override
   protected String instructions() {
@@ -60,8 +60,10 @@ public class ContentRefinementSwarm extends Swarm<ContentQuality> {
     return 8;
   }
 
-  // Workaround: the Akka annotation processor. The real Swarm component type would not need this.
-  public Effect<Void> dummy() {
-    return null;
+  // Workaround: Akka annotation processor requires a public method returning
+  // Workflow.Effect on the concrete class. Not needed with a real Swarm component type.
+  @Override
+  public Effect<Void> run(String input) {
+    return super.run(input);
   }
 }

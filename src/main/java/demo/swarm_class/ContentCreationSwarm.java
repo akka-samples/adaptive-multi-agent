@@ -3,7 +3,6 @@ package demo.swarm_class;
 import akka.javasdk.annotations.Component;
 import akka.javasdk.swarm_class.Handoff;
 import akka.javasdk.swarm_class.Swarm;
-import akka.javasdk.swarm_class.SwarmResult;
 import demo.swarm7.ContentResult;
 
 import java.util.List;
@@ -16,7 +15,7 @@ import java.util.List;
  *
  */
 @Component(id = "content-creation")
-public class ContentCreationSwarm extends Swarm<ContentResult> {
+public class ContentCreationSwarm extends Swarm<String, ContentResult> {
 
   @Override
   protected String instructions() {
@@ -88,8 +87,10 @@ public class ContentCreationSwarm extends Swarm<ContentResult> {
     return 25;
   }
 
-  // Workaround: the Akka annotation processor. The real Swarm component type would not need this.
-  public Effect<Void> dummy() {
-    return null;
+  // Workaround: Akka annotation processor requires a public method returning
+  // Workflow.Effect on the concrete class. Not needed with a real Swarm component type.
+  @Override
+  public Effect<Void> run(String input) {
+    return super.run(input);
   }
 }

@@ -12,7 +12,7 @@ import java.util.List;
  * Extracted as a registered swarm class for composition in {@link ActivityBookingSwarm}.
  */
 @Component(id = "ticketing")
-public class TicketingSwarm extends Swarm<ActivityBookingResult> {
+public class TicketingSwarm extends Swarm<String, ActivityBookingResult> {
 
   @Override
   protected String instructions() {
@@ -48,8 +48,10 @@ public class TicketingSwarm extends Swarm<ActivityBookingResult> {
     return 8;
   }
 
-  // Workaround: the Akka annotation processor. The real Swarm component type would not need this.
-  public Effect<Void> dummy() {
-    return null;
+  // Workaround: Akka annotation processor requires a public method returning
+  // Workflow.Effect on the concrete class. Not needed with a real Swarm component type.
+  @Override
+  public Effect<Void> run(String input) {
+    return super.run(input);
   }
 }

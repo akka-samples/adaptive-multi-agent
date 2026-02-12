@@ -3,7 +3,6 @@ package demo.swarm_class;
 import akka.javasdk.annotations.Component;
 import akka.javasdk.swarm_class.Handoff;
 import akka.javasdk.swarm_class.Swarm;
-import akka.javasdk.swarm_class.SwarmResult;
 import demo.swarm4.RatedPolicyOutput;
 import demo.swarm4.UnderwriterNotifier;
 
@@ -16,7 +15,7 @@ import java.util.List;
  * exceeds 0.5%, the orchestrator pauses for underwriter approval before completing.
  */
 @Component(id = "policy-re-rating")
-public class PolicyReRatingSwarm extends Swarm<RatedPolicyOutput> {
+public class PolicyReRatingSwarm extends Swarm<String, RatedPolicyOutput> {
 
   @Override
   protected String instructions() {
@@ -57,8 +56,10 @@ public class PolicyReRatingSwarm extends Swarm<RatedPolicyOutput> {
     return 10;
   }
 
-  // Workaround: the Akka annotation processor. The real Swarm component type would not need this.
-  public Effect<Void> dummy() {
-    return null;
+  // Workaround: Akka annotation processor requires a public method returning
+  // Workflow.Effect on the concrete class. Not needed with a real Swarm component type.
+  @Override
+  public Effect<Void> run(String input) {
+    return super.run(input);
   }
 }
